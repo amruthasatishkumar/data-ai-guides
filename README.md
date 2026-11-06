@@ -24,3 +24,7 @@ Interactive explainers on data and AI platform topics, published with GitHub Pag
 5. Commit and push to `main`. GitHub Pages publishes it within a few minutes.
 
 These are independent explainers, not official product documentation. Always check the official documentation linked in each guide for the latest information.
+
+## Disclaimer
+
+These explainers were put together by Amrutha Satishkumar for specific purposes and are shared as is. You're welcome to reuse or reference them, but they are not maintained or updated regularly, so please verify the content against the official product documentation before relying on it. They are personal work and are not official guidance from any vendor.
