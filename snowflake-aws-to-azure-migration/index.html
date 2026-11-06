@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="An independent, interactive explainer on moving a Snowflake account from AWS to Azure with replication, failover groups and Client Redirect, including edition requirements and data transfer costs.">
-<title>Moving Snowflake from AWS to Azure: how it works, what it costs</title>
+<title>Moving Snowflake from AWS to Azure using Snowgrid</title>
 <style>
   :root {
     --bg: #F4F7FB; --card: #FFFFFF; --ink: #14233A; --soft: #475A73; --muted: #6B7C93; --line: #DDE5EF;
@@ -132,13 +132,12 @@
   <a href="#cost">7. Cost, including egress</a>
   <a href="#gloss">8. Glossary</a>
   <a href="#sources">9. Sources</a>
-  <a href="../snowgrid-explained/" style="margin-top:14px;font-size:13px">Related: Snowgrid, explained</a>
 </nav>
 
 <main>
 <header>
   <div class="kicker">Migration guide</div>
-  <h1>Moving Snowflake from AWS to Azure</h1>
+  <h1>Moving Snowflake from AWS to Azure using Snowgrid</h1>
   <p class="lede">How the migration works using Snowflake's built-in cross-cloud capabilities (Snowgrid), what you set up on the Azure side, and what it costs, including data transfer (egress) fees.</p>
 </header>
 
@@ -165,7 +164,6 @@
   </div>
   <div class="callout blue"><strong>In plain terms:</strong> you create a Snowflake account on Azure, keep it in sync with your AWS account, test it side by side, then switch your users to the Azure copy. If your clients connect through a Client Redirect connection URL, they keep the same address through the cutover.</div>
   <div class="callout"><strong>Check your edition first.</strong> Database and share replication work on every edition. Failover groups, replication of other account objects (users, roles, warehouses, integrations and more) and Client Redirect require Business Critical Edition or higher. For a one-time account migration, Snowflake's documentation says Snowflake Support can temporarily lift the restriction on account object replication and failover without changing your edition. Confirm the scope of that exception with Snowflake Support before you plan around it.</div>
-  <p style="color:var(--soft);max-width:72ch">New to Snowgrid? <a href="../snowgrid-explained/">Snowgrid, explained</a> covers the concepts in more depth. This guide focuses on the migration steps and the costs.</p>
 </section>
 
 <!-- 2 -->
@@ -532,7 +530,7 @@ GROUP BY replication_group_name;</pre>
       <li><a href="https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction">Introduction to Azure Data Lake Storage</a></li>
       <li><a href="https://learn.microsoft.com/en-us/azure/private-link/private-link-overview">What is Azure Private Link?</a></li>
     </ul>
-    <p style="color:var(--muted);font-size:14px;margin-bottom:0">Related guide: <a href="../snowgrid-explained/">Snowgrid, explained</a>. Command examples use placeholder names (myorg, myaccount, myfg, myconnection, aws_account, azure_account).</p>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:0">Command examples use placeholder names (myorg, myaccount, myfg, myconnection, aws_account, azure_account).</p>
   </div>
 </section>
 
