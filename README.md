@@ -27,4 +27,4 @@ These are independent explainers, not official product documentation. Always che
 
 ## Disclaimer
 
-These explainers were put together by Amrutha Satishkumar for specific purposes and are shared as is. You're welcome to reuse or reference them, but they are not maintained or updated regularly, so please verify the content against the official product documentation before relying on it. They are personal work and are not official guidance from any vendor.
+These explainers were put together by Amrutha Satishkumar for specific purposes and are shared as is. You're welcome to reuse or reference them, but they are not maintained or updated regularly, so please verify the content against the official product documentation before relying on it. They are personal work and are not official guidance from any organization.
