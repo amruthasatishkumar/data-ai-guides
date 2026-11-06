@@ -214,7 +214,7 @@
       <ul class="small">
         <li><b>Best for:</b> custom apps, services and jobs, other agent frameworks, VS Code, or anything outside Foundry.</li>
         <li><b>Endpoint:</b> <code>https://api.fabric.microsoft.com/v1/mcp/workspaces/{workspaceId}/dataagents/{dataAgentId}/agent</code></li>
-        <li><b>Identity:</b> a user <b>or a service principal</b> token for scope <code>https://api.fabric.microsoft.com/.default</code>.</li>
+        <li><b>Identity:</b> a user <b>or a service principal</b> token for scope <code>https://api.fabric.microsoft.com/.default</code>. Service principal access to data agents is in <b>preview</b>, isn't supported for data agents connected to a KQL database, and managed identities aren't supported.</li>
         <li><b>Long-running:</b> supports the MCP tasks extension (<code>tasks/get</code>, <code>tasks/cancel</code>).</li>
         <li><b>You own:</b> token acquisition, orchestration, retries and error handling.</li>
       </ul>
@@ -239,7 +239,7 @@
     <tr data-diff="1"><td class="k">Data agents per agent</td><td>One</td><td>Several</td><td>Any your client chooses to call</td></tr>
     <tr data-diff="1"><td class="k">Protocol</td><td>Custom Foundry tool</td><td>MCP (tool type <code>fabric_iq_preview</code>)</td><td>MCP over streamable HTTP</td></tr>
     <tr data-diff="1"><td class="k">Other Fabric items</td><td>Data agent only</td><td>Data agent, ontology, Power BI semantic model</td><td>Data agent only</td></tr>
-    <tr data-diff="1"><td class="k">Identity</td><td>User identity (on-behalf-of)</td><td>Delegated user context, or a managed or custom OAuth app</td><td>User <b>or service principal</b> token</td></tr>
+    <tr data-diff="1"><td class="k">Identity</td><td>User identity (on-behalf-of)</td><td>Delegated user context, or a managed or custom OAuth app</td><td>User <b>or service principal</b> token (service principal support is preview; not for KQL database sources; no managed identities)</td></tr>
     <tr data-diff="1"><td class="k">Long-running queries</td><td>No long-running option documented</td><td>Background mode (models such as gpt-5.4, gpt-5.5)</td><td>MCP tasks extension</td></tr>
     <tr data-diff="1"><td class="k">SDK support</td><td>Python, C#, JavaScript, Java, REST</td><td>Python, C#, JavaScript, REST (<span class="n">no Java</span>)</td><td>Any language with an MCP client</td></tr>
     <tr data-diff="1"><td class="k">Private networking</td><td>Not documented</td><td>Data agent: tenant- and workspace-level private link. Ontology: tenant-level. Semantic model: public only.</td><td>Use the workspace-specific host when a workspace-level private link blocks public access</td></tr>
@@ -293,7 +293,7 @@
     <ol class="steps v">
       <li>Publish the data agent, then open <b>Settings &gt; Model Context Protocol</b> to copy the MCP server URL and tool description (or download <code>mcp.json</code>).</li>
       <li>Write a clear, specific <b>data agent description</b>. It becomes the MCP tool description that clients use to decide when to call it.</li>
-      <li>Acquire a Fabric token for scope <code>https://api.fabric.microsoft.com/.default</code> as a user or a service principal, and attach it as a bearer token on every request.</li>
+      <li>Acquire a Fabric token for scope <code>https://api.fabric.microsoft.com/.default</code> as a user or a service principal, and attach it as a bearer token on every request. For a service principal (preview): a Fabric admin enables <b>Service principals can use Fabric APIs</b>, you add it to the workspace as Member or Contributor, and you grant it read access to every data source. It isn't supported for data agents connected to a KQL database, and managed identities aren't supported.</li>
       <li>Use an MCP client or SDK: <code>initialize</code>, then <code>tools/list</code>, then <code>tools/call</code> with the question. A plain REST call won't work.</li>
       <li>Handle long-running questions with the MCP tasks extension if your client supports it.</li>
     </ol>
@@ -336,7 +336,7 @@ pip install mcp azure-identity
     <div class="mi t"><b>Write good instructions</b><p>Name each data agent and the questions it covers. Without this, the agent may not call a data agent or may call the wrong one.</p></div>
     <div class="mi t"><b>Descriptions drive routing</b><p>For direct MCP use, the published data agent description is the tool description clients rely on. Make it specific.</p></div>
     <div class="mi t"><b>Long-running queries</b><p>Use background mode in Foundry (gpt-5.4, gpt-5.5) or the MCP tasks extension for direct clients.</p></div>
-    <div class="mi nv"><b>Identity choices</b><p>Foundry connections use delegated user access. Service principal tokens work only when calling the data agent MCP endpoint directly.</p></div>
+    <div class="mi nv"><b>Identity choices</b><p>Foundry connections use delegated user access. Service principal tokens work only when calling the data agent MCP endpoint directly, and that support is in preview: not for KQL database sources, and no managed identities.</p></div>
     <div class="mi nv"><b>Admin consent for custom OAuth apps</b><p>A bring-your-own Entra app for data agents needs <code>DataAgent.Execute.All</code> with admin consent (Power BI <code>Item.Read.All</code> / <code>Item.Execute.All</code> for ontology).</p></div>
     <div class="mi nv"><b>Networking and SDKs</b><p>Semantic model endpoints are public only. Workspace-level private link needs a workspace-specific host. No Java SDK support for Fabric IQ.</p></div>
     <div class="mi"><b>Costs</b><p>Microsoft notes that connecting to Fabric IQ may incur costs. This typically includes model usage in Foundry and Fabric capacity consumption when data agents run queries.</p></div>
@@ -351,7 +351,7 @@ pip install mcp azure-identity
   <details><summary>Do I need to rebuild my Fabric data agents?</summary><div class="ans">No. Microsoft states the migration changes the Foundry tool integration, not the Fabric data agent or its data sources. Keep using your published data agents.</div></details>
   <details><summary>Will answers be different after migrating?</summary><div class="ans">The Fabric data agent still produces the answer, and the model you choose in Foundry is only used for orchestration and replies. Results can differ if your agent now routes between several data agents, so test with representative questions.</div></details>
   <details><summary>Can one Foundry agent use several data agents now?</summary><div class="ans">Yes. With the Fabric IQ (OneLake Catalog) tool you add data agents one at a time, and each appears as its own tool. The retiring tool allowed only one.</div></details>
-  <details><summary>Can I run it without a signed-in user?</summary><div class="ans">Only by calling the data agent MCP endpoint directly with a service principal token. Foundry connections for data agents use delegated user access.</div></details>
+  <details><summary>Can I run it without a signed-in user?</summary><div class="ans">Only by calling the data agent MCP endpoint directly with a service principal token. Foundry connections for data agents use delegated user access. Service principal support for data agents is in preview and has limits: it isn't supported for data agents connected to a KQL database, managed identities aren't supported, a Fabric admin must enable "Service principals can use Fabric APIs", and the service principal needs workspace access plus read access to every data source.</div></details>
   <details><summary>Is the "Fabric IQ MCP server" the same as the Fabric IQ tool in Foundry?</summary><div class="ans">No. The Fabric IQ tool in Foundry calls item-specific endpoints (data agent, ontology, semantic model). The general Fabric IQ MCP server is a separate, read-only server for Power BI reports and semantic models that doesn't currently support data agents or ontologies.</div></details>
   <details><summary>What happens if I don't migrate?</summary><div class="ans">Microsoft's documentation says the retiring integration isn't supported starting November 6, 2026, and that agents using it must migrate. Treat any agent still using it as at risk of failing.</div></details>
   <details><summary>Does this affect other ways of using Fabric data agents?</summary><div class="ans">The retirement notice covers the Microsoft Fabric data agent tool in Foundry Agent Service. Using data agents in Fabric itself, or through other integrations, isn't part of this notice. Check the documentation for each integration you use.</div></details>
@@ -365,6 +365,7 @@ pip install mcp azure-identity
       <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry">Consume a data agent in Microsoft Foundry</a> (retirement notice, earlier method)</li>
       <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry-fabric-iq">Consume Fabric data agent from Microsoft Foundry via Fabric IQ</a> (portal steps, multiple data agents)</li>
       <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server">Data agent as Model Context Protocol server</a> (direct MCP, service principal, tasks)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-service-principal">Use service principal authentication with Fabric data agent</a> (preview, limitations)</li>
       <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/iq/connectors/fabric-iq-mcp">Get started with the Fabric IQ MCP server</a> (the separate, general server)</li>
       <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent-foundry-observability">Observability for Fabric data agents in Microsoft Foundry</a></li>
       <li>Fabric Updates blog: <a href="https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/retiring-the-fabric-data-agent-custom-tool-in-microsoft-foundry-move-to-fabric-i/5374418">Retiring the Fabric data agent custom tool in Microsoft Foundry</a></li>
@@ -408,7 +409,7 @@ pip install mcp azure-identity
     else { title='Alternative 1: Fabric IQ (OneLake Catalog) tool in Foundry'; }
     if(cls!=='b') pts.push('Add the Fabric IQ (OneLake Catalog) tool, pick your published data agents, update instructions and remove the old tool.');
     if(cls!=='a') pts.push('Point your app or service at the data agent MCP endpoint with a user or service principal token (scope https://api.fabric.microsoft.com/.default).');
-    if(ans.spn==='yes') pts.push('Service principal access works only on the direct data agent MCP endpoint; Foundry connections use delegated user access.');
+    if(ans.spn==='yes') pts.push('Service principal access works only on the direct data agent MCP endpoint; Foundry connections use delegated user access. Service principal support for data agents is in preview, isn\u2019t supported for data agents connected to a KQL database, and managed identities aren\u2019t supported. A Fabric admin must enable "Service principals can use Fabric APIs", and the service principal needs workspace access plus read access to each data source.');
     if(ans.java==='yes') pts.push('The Java SDK doesn\u2019t support Fabric IQ. Use Python, C#, JavaScript or REST for the Foundry agent definition, or call the MCP endpoint directly from Java with an MCP client.');
     if(ans.items==='yes') pts.push('The Fabric IQ tool in Foundry can also target an ontology or a Power BI semantic model endpoint. Outside Foundry, the separate Fabric IQ MCP server covers Power BI semantic models.');
     pts.push('Review data residency, cross-geo settings and the preview status with your compliance team before production.');
