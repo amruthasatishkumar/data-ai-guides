@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An independent, interactive explainer on moving a Snowflake account from AWS to Azure with replication, failover groups and Client Redirect, including edition requirements and data transfer costs.">
+<title>Moving Snowflake from AWS to Azure: how it works, what it costs</title>
+<style>
+  :root {
+    --bg: #F4F7FB; --card: #FFFFFF; --ink: #14233A; --soft: #475A73; --muted: #6B7C93; --line: #DDE5EF;
+    --navy: #0B1F3A; --azure: #0078D4; --azure-t: #E6F2FC; --azure-d: #005A9E;
+    --snow: #29B5E8; --amber: #F2A900; --amber-t: #FFF6DD; --amber-d: #8A5F00;
+    --teal: #0B8F7F; --teal-t: #E5F6F3; --red: #B3261E; --red-t: #FCEBEA; --grey-t: #E9EDF3;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.55; font-size: 16px; }
+  a { color: var(--azure-d); }
+  code, pre { font-family: "Cascadia Code", Consolas, monospace; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1280px; margin: 0 auto; }
+  nav { position: sticky; top: 0; align-self: start; height: 100vh; padding: 32px 20px; border-right: 1px solid var(--line); overflow-y: auto; }
+  nav .brand { font-weight: 700; color: var(--navy); font-size: 15px; margin-bottom: 4px; }
+  nav .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 22px; }
+  nav a { display: block; padding: 7px 10px; border-radius: 6px; color: var(--soft); text-decoration: none; font-size: 14px; }
+  nav a:hover { background: var(--azure-t); color: var(--azure-d); }
+  main { padding: 40px 48px 80px; min-width: 0; }
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--azure); }
+  h1 { font-size: 40px; line-height: 1.15; margin: 8px 0 14px; color: var(--navy); font-weight: 600; }
+  h2 { font-size: 28px; margin: 0 0 6px; color: var(--navy); font-weight: 600; }
+  h3 { font-size: 18px; margin: 0 0 6px; color: var(--navy); font-weight: 600; }
+  .lede { font-size: 19px; color: var(--soft); max-width: 62ch; }
+  section { margin-top: 56px; }
+  section > .intro { color: var(--soft); max-width: 72ch; margin: 0 0 22px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 22px 24px; box-shadow: 0 1px 3px rgba(11,31,58,.06); }
+  .card.accent { border-left: 6px solid var(--azure); }
+  .grid { display: grid; gap: 18px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--azure-t); color: var(--azure-d); white-space: nowrap; }
+  .pill.teal { background: var(--teal-t); color: var(--teal); }
+  .pill.amber { background: var(--amber-t); color: var(--amber-d); }
+  .pill.red { background: var(--red-t); color: var(--red); }
+  .pill.grey { background: var(--grey-t); color: var(--soft); }
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 18px 0; background: var(--amber-t); border: 1px solid #F3DFA6; }
+  .callout.blue { background: var(--azure-t); border-color: #BBD9F1; }
+  .callout.red { background: var(--red-t); border-color: #F0C3C0; }
+  .callout strong:first-child { color: var(--navy); }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  pre { background: #0F2540; color: #E7F0FB; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 13.5px; line-height: 1.5; margin: 10px 0; }
+  pre .c { color: #8FB0D6; }
+  .label { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .label.watch { color: var(--amber-d); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 15px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 10px 14px; font-weight: 600; }
+  td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: #F8FAFD; }
+  td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.blocks td { font-size: 14.5px; padding: 9px 14px; }
+  table.blocks td:first-child { white-space: nowrap; font-weight: 600; color: var(--navy); }
+  .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--azure); color: #fff; font-size: 12.5px; font-weight: 700; margin-right: 8px; }
+  .n.opt { background: #8FA0B6; }
+  /* stepper */
+  .stepper { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 22px; align-items: start; }
+  .steps { display: flex; flex-direction: column; gap: 8px; }
+  .steps button { text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 10px 14px; font: inherit; cursor: pointer; color: var(--soft); display: flex; gap: 12px; align-items: center; }
+  .steps button .sn { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--grey-t); color: var(--soft); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+  .steps button.on { border-color: var(--azure); background: var(--azure-t); color: var(--navy); font-weight: 600; }
+  .steps button.on .sn { background: var(--azure); color: #fff; }
+  .stage { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .stage svg { width: 100%; height: auto; display: block; }
+  .controls { display: flex; gap: 10px; margin-top: 12px; }
+  .btn { border: 1px solid var(--azure); background: var(--azure); color: #fff; border-radius: 8px; padding: 8px 16px; font: inherit; cursor: pointer; }
+  .btn.ghost { background: #fff; color: var(--azure-d); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  /* calculator */
+  .calc { display: grid; grid-template-columns: 1fr 1.1fr; gap: 24px; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--soft); }
+  .field input, .field select { font: inherit; padding: 8px 10px; border: 1px solid #C5D2E2; border-radius: 8px; background: #fff; color: var(--ink); }
+  .field small { color: var(--muted); font-size: 12.5px; }
+  .result { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .result span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .result.total { border-bottom: 0; font-size: 18px; color: var(--navy); padding-top: 14px; }
+  .result small { display: block; color: var(--muted); font-weight: 400; }
+  .disclaimer { color: var(--soft); font-size: 14px; max-width: 80ch; border-left: 3px solid var(--amber); padding: 6px 12px; background: var(--amber-t); border-radius: 0 6px 6px 0; margin: 12px 0; }
+  .glossary dt { font-weight: 700; color: var(--navy); margin-top: 12px; }
+  .glossary dd { margin: 2px 0 0; color: var(--soft); }
+  .site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+  .site-foot a { color:#1d4a7a; }
+  @media (max-width: 1020px) {
+    .layout { grid-template-columns: 1fr; } nav { display: none; } main { padding: 28px 22px 60px; }
+    .g2, .g3, .stepper, .calc { grid-template-columns: 1fr; } h1 { font-size: 32px; }
+    table.blocks td:first-child { white-space: normal; }
+    table.blocks, table.blocks tbody, table.blocks tr, table.blocks td { display: block; width: auto; }
+    table.blocks tr:first-child { display: none; }
+    table.blocks tr { border-top: 1px solid var(--line); padding: 8px 0; }
+    table.blocks td { border-top: 0; padding: 4px 14px; }
+    table.blocks td:nth-child(3)::before { content: "In your migration: "; font-weight: 600; color: var(--navy); }
+    table.wide { display: block; overflow-x: auto; }
+    code { overflow-wrap: anywhere; }
+  }
+  .flows { display: flex; flex-direction: column; gap: 18px; margin: 14px 0; }
+  .lane { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 18px; box-shadow: 0 1px 3px rgba(11,31,58,.06); }
+  .lane.good { border-color: #9CC6EA; background: #FAFCFF; }
+  .lane-h { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .lane-t { font-weight: 600; color: var(--navy); }
+  .flow { display: flex; align-items: stretch; gap: 0; }
+  .fb { flex: 1 1 0; min-width: 0; background: #F4F7FB; border: 1px solid var(--line); border-top: 4px solid #8FA0B6; border-radius: 8px; padding: 10px 12px 12px; font-size: 13.5px; color: var(--soft); line-height: 1.4; display: flex; flex-direction: column; gap: 4px; }
+  .lane.good .fb { background: var(--azure-t); border-color: #BBD9F1; border-top-color: var(--azure); }
+  .fb b { color: var(--navy); font-size: 14.5px; }
+  .fn { width: 22px; height: 22px; border-radius: 50%; background: #8FA0B6; color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+  .lane.good .fn { background: var(--azure); }
+  .fb .cost { margin-top: auto; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--amber-d); }
+  .lane.good .fb .cost { color: var(--azure-d); }
+  .fa { flex: none; width: 22px; display: grid; place-items: center; color: var(--muted); font-size: 26px; }
+  @media (max-width: 1020px) { .flow { flex-direction: column; } .fa { width: auto; height: 22px; transform: rotate(90deg); } }
+  @media print { nav { display: none; } .layout { display: block; } .controls { display: none; } section { break-inside: avoid-page; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">Snowflake: AWS to Azure</div>
+  <div class="sub">How it works and what it costs</div>
+  <a href="#quick">1. What is Snowgrid</a>
+  <a href="#model">2. Your migration at a glance</a>
+  <a href="#blocks">3. The building blocks</a>
+  <a href="#walk">4. How the migration runs</a>
+  <a href="#compare">5. Replicate or reload</a>
+  <a href="#scope">6. What moves, what does not</a>
+  <a href="#cost">7. Cost, including egress</a>
+  <a href="#gloss">8. Glossary</a>
+  <a href="#sources">9. Sources</a>
+  <a href="../snowgrid-explained/" style="margin-top:14px;font-size:13px">Related: Snowgrid, explained</a>
+</nav>
+
+<main>
+<header>
+  <div class="kicker">Migration guide</div>
+  <h1>Moving Snowflake from AWS to Azure</h1>
+  <p class="lede">How the migration works using Snowflake's built-in cross-cloud capabilities (Snowgrid), what you set up on the Azure side, and what it costs, including data transfer (egress) fees.</p>
+</header>
+
+<!-- 1 -->
+<section id="quick">
+  <h2>1. What is Snowgrid</h2>
+  <p class="intro">Three points to frame the rest of this guide.</p>
+  <div class="grid g3">
+    <div class="card accent">
+      <span class="pill">What Snowgrid is</span>
+      <h3 style="margin-top:10px">The cross-cloud layer</h3>
+      <p>Snowflake describes Snowgrid as its cross-cloud technology layer, connecting accounts across regions and across AWS, Azure and Google Cloud. In practice, that means data and account setup can be replicated between accounts, and clients can be redirected from one account to another.</p>
+    </div>
+    <div class="card accent" style="border-left-color:var(--teal)">
+      <span class="pill teal">What stays the same</span>
+      <h3 style="margin-top:10px">Snowflake stays Snowflake</h3>
+      <p>Same platform, same SQL, same roles and warehouses. Only the cloud the account runs on changes. There is no separate product to install, just built-in features used between accounts in your Snowflake organization.</p>
+    </div>
+    <div class="card accent" style="border-left-color:var(--amber)">
+      <span class="pill amber">Why this approach</span>
+      <h3 style="margin-top:10px">Migration is a supported use</h3>
+      <p>Snowflake's documentation lists migration as a use of replication and failover: move your account to a different region or cloud platform without disrupting your business.</p>
+    </div>
+  </div>
+  <div class="callout blue"><strong>In plain terms:</strong> you create a Snowflake account on Azure, keep it in sync with your AWS account, test it side by side, then switch your users to the Azure copy. If your clients connect through a Client Redirect connection URL, they keep the same address through the cutover.</div>
+  <div class="callout"><strong>Check your edition first.</strong> Database and share replication work on every edition. Failover groups, replication of other account objects (users, roles, warehouses, integrations and more) and Client Redirect require Business Critical Edition or higher. For a one-time account migration, Snowflake's documentation says Snowflake Support can temporarily lift the restriction on account object replication and failover without changing your edition. Confirm the scope of that exception with Snowflake Support before you plan around it.</div>
+  <p style="color:var(--soft);max-width:72ch">New to Snowgrid? <a href="../snowgrid-explained/">Snowgrid, explained</a> covers the concepts in more depth. This guide focuses on the migration steps and the costs.</p>
+</section>
+
+<!-- 2 -->
+<section id="model">
+  <h2>2. Your migration at a glance</h2>
+  <p class="intro">Two accounts matter: the AWS account you have today (source) and a new Azure account (target), both in the same Snowflake organization.</p>
+
+  <div class="card">
+    <svg viewBox="0 0 900 440" role="img" aria-label="Migration diagram: clients use one connection URL, an AWS account replicates to an Azure account, and the URL moves to Azure at cutover" style="width:100%;height:auto">
+      <defs>
+        <marker id="mNavy" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 z" fill="#0B1F3A"/></marker>
+        <marker id="mAmber" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="12" refX="12" refY="6" orient="auto"><path d="M0,0 L14,6 L0,12 z" fill="#F2A900"/></marker>
+      </defs>
+      <rect x="10" y="10" width="880" height="420" rx="14" fill="#FBFCFE" stroke="#DDE5EF" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <text x="30" y="38" font-size="13" font-weight="700" fill="#6B7C93" letter-spacing="2">YOUR SNOWFLAKE ORGANIZATION</text>
+
+      <rect x="340" y="52" width="220" height="34" rx="6" fill="#FFFFFF" stroke="#DDE5EF"/>
+      <text x="450" y="74" text-anchor="middle" font-size="13.5" fill="#14233A">Clients: BI, apps, ETL</text>
+      <text x="580" y="74" text-anchor="start" font-size="12" fill="#475A73">Clients move to the URL once, early (Client Redirect)</text>
+      <line x1="450" y1="86" x2="450" y2="108" stroke="#0B1F3A" stroke-width="2" marker-end="url(#mNavy)"/>
+      <rect x="230" y="110" width="440" height="40" rx="6" fill="#0B1F3A"/>
+      <text x="450" y="135" text-anchor="middle" font-size="13" fill="#FFFFFF" font-weight="600">&lt;organization&gt;-&lt;connection&gt;.snowflakecomputing.com</text>
+
+      <line x1="300" y1="150" x2="200" y2="212" stroke="#0B1F3A" stroke-width="2.5" marker-end="url(#mNavy)"/>
+      <text x="215" y="190" text-anchor="end" font-size="12" font-weight="700" fill="#0B1F3A">today</text>
+      <line x1="600" y1="150" x2="700" y2="212" stroke="#F2A900" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#mAmber)"/>
+      <text x="685" y="190" text-anchor="start" font-size="12" font-weight="700" fill="#8A5F00">after cutover</text>
+
+      <rect x="70" y="215" width="260" height="110" rx="10" fill="#E9EDF3" stroke="#B9C4D3" stroke-width="1.5"/>
+      <text x="200" y="240" text-anchor="middle" font-size="12" font-weight="700" fill="#475A73" letter-spacing="2">AWS: SOURCE</text>
+      <text x="200" y="268" text-anchor="middle" font-size="17" font-weight="600" fill="#0B1F3A">Account A</text>
+      <text x="200" y="290" text-anchor="middle" font-size="13" fill="#475A73">primary today, read / write</text>
+      <text x="200" y="310" text-anchor="middle" font-size="12" fill="#6B7C93">holds the failover group</text>
+
+      <rect x="570" y="215" width="260" height="110" rx="10" fill="#E6F2FC" stroke="#9CC6EA" stroke-width="1.5"/>
+      <text x="700" y="240" text-anchor="middle" font-size="12" font-weight="700" fill="#005A9E" letter-spacing="2">AZURE: TARGET</text>
+      <text x="700" y="268" text-anchor="middle" font-size="17" font-weight="600" fill="#0B1F3A">Account B</text>
+      <text x="700" y="290" text-anchor="middle" font-size="13" fill="#475A73">read-only replica, then primary</text>
+      <text x="700" y="310" text-anchor="middle" font-size="12" fill="#6B7C93">new account, same organization</text>
+
+      <line x1="334" y1="270" x2="566" y2="270" stroke="#F2A900" stroke-width="5" marker-end="url(#mAmber)"/>
+      <text x="450" y="250" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8A5F00">failover group refresh</text>
+      <text x="450" y="292" text-anchor="middle" font-size="11.5" fill="#475A73">databases, users, roles,</text>
+      <text x="450" y="308" text-anchor="middle" font-size="11.5" fill="#475A73">warehouses, policies</text>
+
+      <rect x="70" y="345" width="260" height="46" rx="8" fill="#FFFFFF" stroke="#B9C4D3" stroke-dasharray="5 4"/>
+      <text x="200" y="365" text-anchor="middle" font-size="12.5" fill="#14233A">S3 storage, AWS PrivateLink, IAM trust</text>
+      <text x="200" y="382" text-anchor="middle" font-size="11" fill="#6B7C93">retire after cutover</text>
+      <rect x="570" y="345" width="260" height="46" rx="8" fill="#FFFFFF" stroke="#9CC6EA" stroke-dasharray="5 4"/>
+      <text x="700" y="365" text-anchor="middle" font-size="12.5" fill="#14233A">ADLS Gen2, Entra ID, Azure Private Link</text>
+      <text x="700" y="382" text-anchor="middle" font-size="11" fill="#005A9E">you set these up on Azure</text>
+
+      <text x="450" y="418" text-anchor="middle" font-size="12.5" fill="#475A73">Replicated objects stay read-only on Azure until you promote it</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="blocks">
+  <h2>3. The building blocks</h2>
+  <p class="intro">Eight concepts, all in one view. Items 1 to 5 are the migration itself. Items 6 to 8 apply in some situations or are checks rather than things to build.</p>
+  <table class="blocks">
+    <tr><th>Concept</th><th>What it does</th><th>In your migration</th></tr>
+    <tr><td><span class="n">1</span>Organization and accounts</td><td>An organization groups your Snowflake accounts. Each account lives in one cloud region. Replication works between accounts in the same organization.</td><td>Create the Azure account in your existing organization. An organization administrator enables replication on both accounts.</td></tr>
+    <tr><td><span class="n">2</span>Failover group</td><td>A named bundle that says what to copy (databases, users, roles, warehouses and more), where to, and how often, and that can be promoted on the target.</td><td>The core of the migration. Failover groups need Business Critical or higher. On Standard and Enterprise, replication groups can copy databases and shares only, unless Snowflake Support enables account object replication and failover for the migration.</td></tr>
+    <tr><td><span class="n">3</span>Primary and secondary</td><td>The source holds the primary group. Its copy in the target is the secondary, read-only until promoted.</td><td>Azure is a read-only copy you can test against. Promotion makes it writable and makes AWS read-only.</td></tr>
+    <tr><td><span class="n">4</span>Refresh and schedule</td><td>A refresh syncs the secondary. The first copies everything, later ones copy only changes, on a schedule you set.</td><td>Keep a schedule running during validation, then let a final refresh complete before cutover. A group cannot be promoted while it is being refreshed.</td></tr>
+    <tr><td><span class="n">5</span>Connection (Client Redirect)</td><td>A stable URL, <code>&lt;organization&gt;-&lt;connection&gt;.snowflakecomputing.com</code>, that resolves to the account holding the primary connection. Requires Business Critical or higher.</td><td>Move clients to the URL once, early. Cutover then needs no client changes. With private connectivity, you create and manage a DNS CNAME record for the URL.</td></tr>
+    <tr><td><span class="n opt">6</span>Listings and auto-fulfillment</td><td>Listings with auto-fulfillment enabled can be added to a failover group with their shares.</td><td>Only if you publish data. Snowflake documents that consumers keep access after a failover when the listings are in the group. Auto-fulfillment has its own costs.</td></tr>
+    <tr><td><span class="n opt">7</span>Governance</td><td>Policies and tags are database objects and replicate with the databases that contain them. Role grants replicate when roles are in scope.</td><td>Include the databases that hold your policies and tags. Tag assignments are read-only on the target. Verify masking, row access and tag behavior on the Azure account during validation.</td></tr>
+    <tr><td><span class="n opt">8</span>Encryption and network</td><td>Replicated data is protected in transit and at rest and encrypted in the target account under that account's own key hierarchy.</td><td>Target accounts do not have Tri-Secret Secure or private connectivity enabled by default. If you use them, set them up on the Azure account yourself.</td></tr>
+  </table>
+</section>
+
+<!-- 4 -->
+<section id="walk">
+  <h2>4. How the migration runs</h2>
+  <p class="intro">Step through the five states. The diagram shows which account answers your clients, and the panel shows the Snowflake commands behind each step (from Snowflake's documentation, with placeholder names).</p>
+
+  <div class="stepper">
+    <div>
+      <div class="steps" id="steps"></div>
+      <div class="controls">
+        <button class="btn ghost" id="prev">Back</button>
+        <button class="btn" id="next">Next step</button>
+      </div>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 520 330" id="stage" role="img" aria-label="Diagram showing which account clients reach at each step">
+        <defs>
+          <marker id="ah" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 z" fill="#0B1F3A"/></marker>
+          <marker id="ahA" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 z" fill="#F2A900"/></marker>
+        </defs>
+        <rect x="120" y="14" width="280" height="44" rx="6" fill="#FFFFFF" stroke="#DDE5EF"/>
+        <text x="260" y="42" text-anchor="middle" font-size="14" fill="#14233A">Clients: BI, apps, ETL</text>
+        <line x1="260" y1="58" x2="260" y2="86" stroke="#0B1F3A" stroke-width="2" marker-end="url(#ah)"/>
+        <rect x="70" y="88" width="380" height="42" rx="6" fill="#0B1F3A"/>
+        <text x="260" y="114" text-anchor="middle" font-size="12.5" fill="#FFFFFF" font-weight="600">&lt;org&gt;-&lt;connection&gt;.snowflakecomputing.com</text>
+        <line id="toAws" x1="150" y1="130" x2="110" y2="176" stroke="#0B1F3A" stroke-width="2.5" marker-end="url(#ah)"/>
+        <line id="toAz" x1="370" y1="130" x2="410" y2="176" stroke="#0B1F3A" stroke-width="2.5" marker-end="url(#ah)"/>
+        <g id="awsBox"><rect x="20" y="180" width="200" height="120" rx="10" fill="#E9EDF3" stroke="#B9C4D3" stroke-width="1.5"/>
+          <text x="120" y="204" text-anchor="middle" font-size="11.5" font-weight="700" fill="#475A73" letter-spacing="2">AWS ACCOUNT</text>
+          <text id="awsRole" x="120" y="236" text-anchor="middle" font-size="15" font-weight="600" fill="#0B1F3A">Primary</text>
+          <text id="awsSub" x="120" y="258" text-anchor="middle" font-size="12" fill="#475A73">read / write</text></g>
+        <g id="azBox"><rect x="300" y="180" width="200" height="120" rx="10" fill="#E6F2FC" stroke="#9CC6EA" stroke-width="1.5"/>
+          <text x="400" y="204" text-anchor="middle" font-size="11.5" font-weight="700" fill="#005A9E" letter-spacing="2">AZURE ACCOUNT</text>
+          <text id="azRole" x="400" y="236" text-anchor="middle" font-size="15" font-weight="600" fill="#0B1F3A">Not created</text>
+          <text id="azSub" x="400" y="258" text-anchor="middle" font-size="12" fill="#475A73">&nbsp;</text></g>
+        <line id="repl" x1="224" y1="240" x2="296" y2="240" stroke="#F2A900" stroke-width="4" marker-end="url(#ahA)"/>
+        <text id="replTxt" x="260" y="226" text-anchor="middle" font-size="11" font-weight="700" fill="#8A5F00">refresh</text>
+        <text id="note" x="260" y="322" text-anchor="middle" font-size="12.5" fill="#475A73"></text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card" id="detail" style="margin-top:18px"></div>
+
+  <div class="callout red"><strong>Order matters at cutover.</strong> For the most consistent failover, Snowflake's documentation recommends selecting all applicable failover groups and connections and promoting them at the same time (a "bulk failover" in Snowsight), so the data and the URL move together. For a planned cutover, also pause ingestion on AWS and let a final refresh complete first.</div>
+</section>
+
+<!-- 5 -->
+<section id="compare">
+  <h2>5. Replicate or reload</h2>
+  <p class="intro">Both routes move data across clouds, so both incur data transfer charges. The bigger difference is everything around the transfer: staging, compute, rebuild work and how much changes at cutover.</p>
+  <div class="flows">
+    <div class="lane">
+      <div class="lane-h"><span class="pill grey">Manual route</span><span class="lane-t">Unload and reload</span></div>
+      <div class="flow">
+        <div class="fb"><div class="fn">1</div><b>Unload</b>Export tables to files in S3<span class="cost">Unload compute, S3 staging</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">2</div><b>Copy files</b>Move files from AWS to Azure<span class="cost">AWS data transfer out, from $0.09/GB*</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">3</div><b>Reload</b>Load into Azure Snowflake from ADLS<span class="cost">Load compute, ADLS staging</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">4</div><b>Rebuild setup</b>Recreate users, roles, grants, warehouses by hand<span class="cost">Engineering effort</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">5</div><b>Repoint and cut over</b>Change every client at once<span class="cost">Rollback means repointing again</span></div>
+      </div>
+    </div>
+    <div class="lane good">
+      <div class="lane-h"><span class="pill">Replication</span><span class="lane-t">Replicate and redirect</span></div>
+      <div class="flow">
+        <div class="fb"><div class="fn">1</div><b>Create group</b>Define a failover group on AWS<span class="cost">Admin time</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">2</div><b>Refresh</b>Data and account setup copied, then changes only<span class="cost">Snowflake transfer, $90/TB from AWS US and EU regions*</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">3</div><b>Validate</b>Test on the read-only Azure copy<span class="cost">Azure warehouses, storage</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">4</div><b>Promote</b>Final refresh, then the URL moves to Azure<span class="cost">Clients already on the URL</span></div>
+        <div class="fa">&rsaquo;</div>
+        <div class="fb"><div class="fn">5</div><b>Retire AWS</b>Optional fallback window first<span class="cost">Fail back possible until retired</span></div>
+      </div>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:14px;max-width:80ch">* List rates. AWS data transfer out rates and Snowflake data transfer rates are in the cost section below.</p>
+</section>
+
+<!-- 6 -->
+<section id="scope">
+  <h2>6. What moves, what does not</h2>
+  <p class="intro">Based on Snowflake's replication documentation. Object-level rules change over time, so confirm each one against your own inventory and the current <a href="https://docs.snowflake.com/en/user-guide/account-replication-intro">replicated objects list</a> before cutover.</p>
+  <div class="grid g2">
+    <div class="card accent" style="border-left-color:var(--teal)">
+      <span class="pill teal">Can replicate</span>
+      <ul>
+        <li>Databases and most objects inside them, with data (all editions)</li>
+        <li>Outbound shares (all editions)</li>
+        <li>Users and their properties, roles and role hierarchies, with grants</li>
+        <li>Warehouses (replicated in the suspended state), resource monitors</li>
+        <li>Network policies and account-level parameters</li>
+        <li>Security, API, notification, storage and external access integrations</li>
+        <li>Stages and pipes (with replication or failover groups)</li>
+        <li>Listings with auto-fulfillment, external volumes for Snowflake-managed Iceberg tables</li>
+        <li>Cortex Search Services, Datasets, workspaces</li>
+      </ul>
+      <p style="color:var(--muted);font-size:14px">Databases and shares replicate on every edition. Failover groups and most other account objects need Business Critical or higher. See the edition matrix in Snowflake's documentation for the exceptions.</p>
+    </div>
+    <div class="card accent" style="border-left-color:var(--red)">
+      <span class="pill red">Does not replicate, or needs care</span>
+      <ul>
+        <li><strong>Inbound shares</strong> from other providers: not supported</li>
+        <li><strong>External tables, hybrid tables, event tables, temporary tables:</strong> not replicated</li>
+        <li><strong>Files on external stages:</strong> not copied. Replicated external stages still point to the same S3 location, so plan to move the files to ADLS Gen2 and repoint the stages. Files on user and table stages are not replicated either.</li>
+        <li><strong>Time Travel history and query history:</strong> not replicated. Each account keeps its own.</li>
+        <li><strong>Warehouse running state:</strong> not carried over</li>
+        <li><strong>Resource monitor email settings</strong> for account administrators</li>
+        <li><strong>Privileges on the groups themselves</strong> (REPLICATE, FAILOVER): grant on both sides</li>
+        <li><strong>Cloud-side setup outside Snowflake:</strong> AWS PrivateLink to Azure Private Link, S3 IAM trust to Azure storage access, plus any SSO and provisioning changes in Microsoft Entra ID</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="cost">
+  <h2>7. Cost, including egress</h2>
+  <p class="intro">Data transfer out of AWS is a major one-time cost line, alongside the rework effort. Snowflake bills replication on the target account (the Azure account), and the data transfer rate is set by where the source account lives. Snowflake rates below are list prices from Snowflake's Service Consumption Table effective November 4, 2026. Prices change, so check the <a href="https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf">current table</a> before you rely on them.</p>
+
+  <h3>What you pay for</h3>
+  <table>
+    <tr><th style="width:23%">Cost</th><th>How it works</th><th style="width:22%">When</th></tr>
+    <tr><td><strong>Data transfer (egress)</strong></td><td>Initial copy plus ongoing changes, billed per TB by Snowflake at the rate for the source (AWS) region going to a different cloud provider. Snowflake does not charge for data ingress, and Azure lists inbound data transfer as free.</td><td>Initial copy, then each refresh</td></tr>
+    <tr><td><strong>Replication compute</strong></td><td>Depends on the failover group's refresh mode. Replication Classic (the default) uses Snowflake-provided compute billed in credits. Optimized Refresh is billed at 5 credits per TB replicated and RPO Assurance at 10 credits per TB, plus a charge for changed objects above a monthly free allowance.</td><td>Each refresh</td></tr>
+    <tr><td><strong>Azure-side storage</strong></td><td>Standard Snowflake storage for the copy on Azure, plus background upkeep for materialized views and search optimization. You keep paying AWS-side storage until you retire it.</td><td>From first refresh, while both exist</td></tr>
+    <tr><td><strong>Validation compute</strong></td><td>Warehouses on Azure used to test queries side by side with AWS.</td><td>Validation phase</td></tr>
+    <tr><td><strong>Edition</strong></td><td>Failover groups, account object replication and Client Redirect require Business Critical or higher, which has a higher per-credit price than lower editions. Example on-demand list prices in AWS US East (Northern Virginia) and Azure East US 2: Standard $2.00, Enterprise $3.00, Business Critical $4.00 per credit. For a one-time migration, Snowflake Support can temporarily lift the edition restriction on account object replication and failover.</td><td>If you are not already on it</td></tr>
+    <tr><td><strong>Reverse refresh</strong></td><td>If you keep AWS as a fallback after cutover, refreshes from Azure to AWS are billed on the AWS account as target, including transfer at the Azure source rate (Table 4(b): for example, $87.50 per TB to a different cloud provider from Azure East US 2).</td><td>Only during a fallback window</td></tr>
+    <tr><td><strong>Failed refreshes</strong></td><td>Still billed. Data already copied can be reused by a later refresh within 14 days.</td><td>If a refresh fails</td></tr>
+  </table>
+
+  <h3 style="margin-top:32px">Snowflake data transfer list rates from AWS*</h3>
+  <p style="color:var(--soft);max-width:72ch">Rate per TB for data transferred from a Snowflake account on AWS to a different cloud provider, which is what replication to Azure is. For comparison, the table also shows the same-cloud rate between AWS regions. Snowflake does not charge for standard data transfer within the same region.</p>
+  <table class="wide">
+    <tr><th>Source AWS region</th><th class="num">To Azure (different cloud), per TB</th><th class="num">To another AWS region, per TB</th><th class="num">100 TB initial copy</th></tr>
+    <tr><td>US East (Northern Virginia), US West (Oregon), US East 2 (Ohio)</td><td class="num">$90.00</td><td class="num">$20.00</td><td class="num">$9,000</td></tr>
+    <tr><td>Canada Central</td><td class="num">$90.00</td><td class="num">$20.00</td><td class="num">$9,000</td></tr>
+    <tr><td>EU Dublin, EU Frankfurt, EU (Paris), Europe (Stockholm), EU (Zurich), Europe (London)</td><td class="num">$90.00</td><td class="num">$20.00</td><td class="num">$9,000</td></tr>
+    <tr><td>AP Mumbai</td><td class="num">$90.00</td><td class="num">$60.00</td><td class="num">$9,000</td></tr>
+    <tr><td>Asia Pacific (Malaysia), Asia Pacific (Thailand)</td><td class="num">$108.00</td><td class="num">$80.00</td><td class="num">$10,800</td></tr>
+    <tr><td>AP Northeast 1 (Tokyo), Asia Pacific (Osaka)</td><td class="num">$114.00</td><td class="num">$90.00</td><td class="num">$11,400</td></tr>
+    <tr><td>Asia Pacific (New Zealand)</td><td class="num">$114.00</td><td class="num">$98.00</td><td class="num">$11,400</td></tr>
+    <tr><td>AP Singapore</td><td class="num">$120.00</td><td class="num">$90.00</td><td class="num">$12,000</td></tr>
+    <tr><td>Asia Pacific (Seoul)</td><td class="num">$126.00</td><td class="num">$80.00</td><td class="num">$12,600</td></tr>
+    <tr><td>Asia Pacific (Jakarta)</td><td class="num">$132.00</td><td class="num">$100.00</td><td class="num">$13,200</td></tr>
+    <tr><td>AP Sydney</td><td class="num">$140.00</td><td class="num">$140.00</td><td class="num">$14,000</td></tr>
+    <tr><td>South America East 1 (Sao Paulo)</td><td class="num">$150.00</td><td class="num">$138.00</td><td class="num">$15,000</td></tr>
+    <tr><td>Africa (Cape Town)</td><td class="num">$154.00</td><td class="num">$147.00</td><td class="num">$15,400</td></tr>
+  </table>
+  <p style="color:var(--muted);font-size:14px">The rate follows the source (AWS) region, not the Azure region. Commercial regions are shown. US government regions and any newer regions are in Table 4(a) of the consumption table. Capacity contracts and negotiated terms can differ, so confirm against your agreement.</p>
+  <p class="disclaimer">* List rates only, shown as examples. Snowflake prices in this guide come from the Snowflake Service Consumption Table effective November 4, 2026, and AWS and Azure prices from their public pricing pages, all checked on November 6, 2026. They exclude taxes, are for planning only and are not a quote. Prices change, and your contract, commitments and discounts may differ, so always check the current published tables.</p>
+  <h3 style="margin-top:32px">AWS data transfer out rates (manual route reference)*</h3>
+  <p style="color:var(--soft);font-size:14.5px;max-width:80ch;margin-bottom:8px">AWS charges for data leaving AWS, including files you export yourself on the manual route. This is AWS's own list price for data transfer out to the internet from US East (N. Virginia), shown for reference. It is not a Snowflake price and is not part of the replication estimate above.</p>
+  <table style="max-width:560px">
+    <tr><th>Monthly volume</th><th class="num">Rate per GB</th></tr>
+    <tr><td>First 100 GB (free tier, all AWS services and regions combined, except China and GovCloud)</td><td class="num">Free</td></tr>
+    <tr><td>First 10 TB</td><td class="num">$0.09</td></tr>
+    <tr><td>Next 40 TB</td><td class="num">$0.085</td></tr>
+    <tr><td>Next 100 TB</td><td class="num">$0.07</td></tr>
+    <tr><td>Beyond 150 TB</td><td class="num">$0.05</td></tr>
+  </table>
+  <p style="color:var(--muted);font-size:13.5px;max-width:80ch">Source: AWS data transfer price list for US East (N. Virginia), publication dated November 3, 2026 (<a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json">price list</a>, <a href="https://aws.amazon.com/s3/pricing/">Amazon S3 pricing</a>). Rates vary by region, and tiers count aggregate monthly transfer out to the internet. AWS also states that it offers eligible customers free data transfer out to the internet when they move all of their data off AWS. That applies to your own AWS bill, not to Snowflake's charges, so confirm eligibility with AWS. List rates only; your agreement may differ.</p>
+
+
+  <h3 style="margin-top:32px">Estimate your one-time and overlap costs</h3>
+  <div class="card">
+    <div class="calc">
+      <div>
+        <div class="field"><label for="region">Source AWS region</label>
+          <select id="region"></select>
+          <small>Transfer list rates: Snowflake Service Consumption Table (effective November 4, 2026), Table 4(a) AWS Data Transfer Pricing, "to different cloud provider or internet" column.</small></div>
+        <div class="field"><label for="size">Data to replicate (TB)</label>
+          <input id="size" type="number" min="0" step="1" value="100">
+          <small>Compressed storage as Snowflake measures it. See the query below. The estimate assumes the data transferred equals this size.</small></div>
+        <div class="field"><label for="chg">Data changed per week (TB)</label>
+          <input id="chg" type="number" min="0" step="0.5" value="3">
+          <small>New and updated data your pipelines write each week.</small></div>
+        <div class="field"><label for="wks">Weeks both accounts run in parallel</label>
+          <input id="wks" type="number" min="0" step="1" value="8"></div>
+        <div class="field"><label for="stor">Snowflake storage rate on Azure ($ per TB per month)</label>
+          <input id="stor" type="number" min="0" step="0.5" value="23">
+                  <small>Default is an example list rate: Snowflake Service Consumption Table (effective November 4, 2026), Table 3(a) Standard Storage Pricing, on-demand rate of $23.00 per TB per month in Azure regions such as East US 2, West US 2, Central US, West Europe and Sweden Central. Other Azure regions in the table range up to $39.00. This is Snowflake's charge for data stored in your Azure account, not Azure Blob pricing. Capacity contracts can have lower rates at higher commitment tiers, so use yours if different. <a href="https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf">Check the current table</a></small></div>
+      </div>
+      <div>
+        <div class="label">Estimate</div>
+        <div class="result"><span>Initial copy transfer<small id="r1d"></small></span><span id="r1"></span></div>
+        <div class="result"><span>Refresh transfer during overlap<small id="r2d"></small></span><span id="r2"></span></div>
+        <div class="result"><span>Azure storage during overlap<small id="r3d"></small></span><span id="r3"></span></div>
+        <div class="result total"><span>Estimated total*</span><span id="rt"></span></div>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Excludes replication and validation compute credits, edition differences, and AWS-side storage you already pay. Refresh transfer is approximated from the data you change each week, and actual bytes transferred can differ, so measure it with the query below once replication starts. Use as a planning figure, not a quote. * Example list rates only; check the current Snowflake Service Consumption Table.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:24px">Get your own numbers</h3>
+  <p style="color:var(--soft);max-width:72ch">Run the first query on your AWS account to size the data. The database storage figure includes Time Travel bytes, which are not replicated, so treat it as an upper bound. Once replication starts, run the second query on the Azure account to see actual transfer and credits (the view can lag by up to three hours).</p>
+<pre><span class="c">-- Size of each database over the last 30 days (TB), run on the AWS account</span>
+SELECT database_name,
+       ROUND(AVG(average_database_bytes) / POWER(1024, 4), 2) AS avg_tb
+FROM snowflake.account_usage.database_storage_usage_history
+WHERE usage_date &gt;= DATEADD(day, -30, CURRENT_DATE())
+GROUP BY database_name
+ORDER BY avg_tb DESC;
+
+<span class="c">-- Actual replication transfer and credits, run on the Azure account</span>
+SELECT replication_group_name,
+       ROUND(SUM(bytes_transferred) / POWER(1024, 4), 3) AS tb_transferred,
+       SUM(credits_used) AS credits
+FROM snowflake.account_usage.replication_group_usage_history
+WHERE start_time &gt;= DATEADD(day, -30, CURRENT_TIMESTAMP())
+GROUP BY replication_group_name;</pre>
+
+  <div class="callout blue"><strong>Ways to keep the cost down:</strong> replicate only the databases you need, drop tables you no longer need before the first copy, refresh high-churn databases less often, keep the refresh cadence as low as your validation needs, keep the parallel-run window short, and stop refreshing to stop the charges. After the first copy, only changes are sent.</div>
+
+  <h3 style="margin-top:24px">Pricing references</h3>
+  <ul>
+    <li><a href="https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf">Snowflake Service Consumption Table</a>: Table 2(a) credit pricing, Table 3(a) storage, Table 4(a) AWS and Table 4(b) Azure data transfer, Table 5 serverless features</li>
+    <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-cost">Snowflake: Understanding replication cost</a></li>
+    <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-monitor">Snowflake: Monitoring replication and failover, including cost queries</a></li>
+    <li><a href="https://docs.snowflake.com/en/user-guide/cost-understanding-data-transfer">Snowflake: Understanding data transfer cost</a></li>
+    <li><a href="https://aws.amazon.com/s3/pricing/">Amazon S3 pricing</a> (data transfer out, for the manual route and any files you unload yourself)</li>
+    <li><a href="https://azure.microsoft.com/en-us/pricing/details/bandwidth/">Azure bandwidth pricing</a> (data transfer in is free)</li>
+    <li><a href="https://azure.microsoft.com/en-us/pricing/details/private-link/">Azure Private Link pricing</a></li>
+    <li><a href="https://azure.microsoft.com/en-us/pricing/calculator/">Azure pricing calculator</a></li>
+  </ul>
+</section>
+
+<!-- 8 -->
+<section id="gloss">
+  <h2>8. Glossary</h2>
+  <dl class="glossary card">
+    <dt>Organization</dt><dd>The umbrella over all of your Snowflake accounts. Required for cross-account replication.</dd>
+    <dt>Account</dt><dd>One Snowflake deployment in one cloud region.</dd>
+    <dt>Source and target</dt><dd>The account that holds the primary group (source) and the account that holds the replica (target).</dd>
+    <dt>Failover group</dt><dd>A bundle of objects copied from source to target on a schedule, which can also be promoted so the target becomes the writable primary.</dd>
+    <dt>Refresh</dt><dd>One synchronization of a secondary group with its primary.</dd>
+    <dt>Promote (failover)</dt><dd>Make the secondary the new primary. Objects become writable there and read-only on the old primary.</dd>
+    <dt>Failback</dt><dd>Promote the original account to primary again.</dd>
+    <dt>Connection and Client Redirect</dt><dd>A named URL that resolves to whichever account holds the primary connection.</dd>
+    <dt>Egress</dt><dd>Data transferred out of a cloud or region. Billed per TB.</dd>
+    <dt>Listing and auto-fulfillment</dt><dd>An offer of a data product to consumers, which Snowflake can replicate to consumer regions automatically.</dd>
+    <dt>Tri-Secret Secure</dt><dd>A Business Critical option that combines a Snowflake-maintained key with a customer-managed key created on the cloud that hosts the account. It is not enabled by default on a target account, so on Azure you set it up with a key you create on Azure.</dd>
+  </dl>
+</section>
+
+<!-- 9 -->
+<section id="sources">
+  <h2>9. Sources</h2>
+  <p class="intro">Official documentation and pricing pages this guide was checked against on November 6, 2026.</p>
+  <div class="card">
+    <div class="label">Snowflake documentation</div>
+    <ul>
+      <li><a href="https://www.snowflake.com/en/blog/new-snowgrid-cross-cloud-capabilities/">Snowflake blog: Keep Going Global: New Cross-Cloud Capabilities with Snowgrid</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/replication-intro">Introduction to business continuity and disaster recovery (includes account migration and the edition note)</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-intro">Replication and failover groups: replicated objects and edition matrix</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-config">Replicating databases and account objects across multiple accounts</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-considerations">Replication considerations (Time Travel, tags, policies, historical usage data)</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-stages-pipes-load-history">Stage, pipe, and load history replication</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-failover-failback">Failing over account objects</a></li>
+      <li><a href="https://docs.snowflake.com/en/sql-reference/sql/alter-failover-group">ALTER FAILOVER GROUP</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/client-redirect">Redirecting client connections (Client Redirect)</a></li>
+      <li><a href="https://docs.snowflake.com/en/collaboration/listings-bcdr">Listing support in business continuity and disaster recovery</a></li>
+      <li><a href="https://docs.snowflake.com/en/collaboration/provider-listings-auto-fulfillment">Auto-fulfillment for listings</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/security-encryption-tss">Tri-Secret Secure in Snowflake</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/privatelink-azure">Azure Private Link and Snowflake</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/data-load-azure-config">Configure an Azure container for loading data (storage integrations)</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-cost">Understanding replication cost</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/account-replication-monitor">Monitoring replication and failover</a></li>
+      <li><a href="https://docs.snowflake.com/en/user-guide/cost-understanding-data-transfer">Understanding data transfer cost</a></li>
+      <li><a href="https://docs.snowflake.com/en/sql-reference/account-usage/database_storage_usage_history">DATABASE_STORAGE_USAGE_HISTORY view</a></li>
+      <li><a href="https://docs.snowflake.com/en/sql-reference/account-usage/replication_group_usage_history">REPLICATION_GROUP_USAGE_HISTORY view</a></li>
+    </ul>
+    <div class="label" style="margin-top:14px">Pricing</div>
+    <ul>
+      <li><a href="https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf">Snowflake Service Consumption Table</a> (effective November 4, 2026 when checked)</li>
+      <li><a href="https://www.snowflake.com/en/pricing-options/">Snowflake pricing options</a></li>
+      <li><a href="https://azure.microsoft.com/en-us/pricing/details/bandwidth/">Azure bandwidth pricing</a></li>
+      <li><a href="https://aws.amazon.com/s3/pricing/">Amazon S3 pricing</a> and the <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/us-east-1/index.json">AWS data transfer price list (US East)</a></li>
+      <li><a href="https://aws.amazon.com/ec2/pricing/on-demand/">Amazon EC2 on-demand pricing: data transfer</a> (free data transfer out when moving off AWS)</li>
+    </ul>
+    <div class="label" style="margin-top:14px">Microsoft Learn</div>
+    <ul>
+      <li><a href="https://learn.microsoft.com/en-us/entra/identity/saas-apps/snowflake-tutorial">Configure Snowflake for single sign-on with Microsoft Entra ID</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/entra/identity/saas-apps/snowflake-provisioning-tutorial">Configure Snowflake for automatic user provisioning with Microsoft Entra ID</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction">Introduction to Azure Data Lake Storage</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/azure/private-link/private-link-overview">What is Azure Private Link?</a></li>
+    </ul>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:0">Related guide: <a href="../snowgrid-explained/">Snowgrid, explained</a>. Command examples use placeholder names (myorg, myaccount, myfg, myconnection, aws_account, azure_account).</p>
+  </div>
+</section>
+
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content checked against Snowflake and Microsoft documentation on November 6, 2026.<br>
+  Product features and pricing change often. For the latest information, always check the official Snowflake and Microsoft documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+</main>
+</div>
+
+<script>
+  const states = [
+    { t: "Steady state", short: "Clients use the URL, AWS is primary",
+      aws: ["Primary", "read / write"], az: ["Not created", ""], url: "aws", repl: "off", note: "Start: one account, no Azure yet.",
+      what: "Before anything moves, point every client at a connection URL so later steps need no client changes. Create the connection in the AWS account. Client Redirect requires Business Critical or higher.",
+      sql: "<span class=\"c\">-- On the AWS (source) account</span>\nCREATE CONNECTION myconnection;\n<span class=\"c\">-- Then move clients to myorg-myconnection.snowflakecomputing.com</span>",
+      watch: "Verify the organization name first, since it is part of the URL. If you use private connectivity, you create and manage a DNS CNAME record for the connection URL." },
+    { t: "Create and replicate", short: "Azure account created, failover group refreshing",
+      aws: ["Primary", "read / write"], az: ["Secondary", "read-only replica"], url: "aws", repl: "on", note: "Azure holds a read-only copy, refreshed on a schedule.",
+      what: "An organization administrator enables replication on both accounts. On AWS you create a failover group. On Azure you create its replica. With a replication schedule, the first refresh runs when the replica is created and copies everything. Later refreshes copy changes.",
+      sql: "<span class=\"c\">-- Organization administrator, once per account</span>\nSELECT SYSTEM$GLOBAL_ACCOUNT_SET_PARAMETER(\n  'myorg.myaccount', 'ENABLE_ACCOUNT_DATABASE_REPLICATION', 'true');\n\n<span class=\"c\">-- AWS (source)</span>\nCREATE FAILOVER GROUP myfg\n  OBJECT_TYPES = USERS, ROLES, WAREHOUSES, RESOURCE MONITORS, DATABASES\n  ALLOWED_DATABASES = db1, db2\n  ALLOWED_ACCOUNTS = myorg.azure_account\n  REPLICATION_SCHEDULE = '10 MINUTE';\n\n<span class=\"c\">-- AWS (source): allow the connection to fail over to Azure</span>\nALTER CONNECTION myconnection\n  ENABLE FAILOVER TO ACCOUNTS myorg.azure_account;\n\n<span class=\"c\">-- Azure (target)</span>\nCREATE FAILOVER GROUP myfg AS REPLICA OF myorg.aws_account.myfg;\nCREATE CONNECTION myconnection AS REPLICA OF myorg.aws_account.myconnection;",
+      watch: "Failover groups and account objects need Business Critical or higher. Warehouses are replicated suspended. Create users and roles on the AWS account: replicated users and roles are read-only on Azure, and a refresh can drop account objects of replicated types that were created directly on Azure." },
+    { t: "Validate and fix the edges", short: "Test on Azure while AWS stays primary",
+      aws: ["Primary", "read / write"], az: ["Secondary", "validation queries"], url: "aws", repl: "on", note: "Compare results, performance and cost. Set up stages, identity, networking.",
+      what: "Run representative queries on the Azure replica and compare to AWS. In parallel, set up the Azure edges: move external stage files to ADLS Gen2 and repoint stages and storage integrations, review SSO and SCIM (for example with Microsoft Entra ID), configure Azure Private Link and network policies if you use them, and add the DNS entry for the connection URL.",
+      sql: "<span class=\"c\">-- Check refresh health on the target</span>\nSELECT * FROM TABLE(INFORMATION_SCHEMA.REPLICATION_GROUP_REFRESH_HISTORY('myfg'));\n\n<span class=\"c\">-- Optional manual refresh</span>\nALTER FAILOVER GROUP myfg REFRESH;",
+      watch: "Replication charges accrue the whole time. Keep this phase tight and the schedule sensible. Azure Private Link and Tri-Secret Secure are not enabled on the target by default, and both require Business Critical or higher." },
+    { t: "Promote Azure", short: "Final refresh, then fail over. Same URL.",
+      aws: ["Secondary", "now read-only"], az: ["Primary", "read / write"], url: "az", repl: "paused", note: "The URL now resolves to Azure. Scheduled refreshes are suspended.",
+      what: "Pause ingestion on AWS and let a final refresh complete, then promote the Azure failover group and connection together. Objects become writable on Azure and read-only on AWS. Clients on the URL now reach Azure.",
+      sql: "<span class=\"c\">-- Azure (target). Stop scheduled refreshes; wait for any running one to finish</span>\nALTER FAILOVER GROUP myfg SUSPEND;\n\n<span class=\"c\">-- Promote the group, then the connection</span>\nALTER FAILOVER GROUP myfg PRIMARY;\nALTER CONNECTION myconnection PRIMARY;",
+      watch: "Promotion fails while a refresh is in progress. On failover, scheduled refreshes on secondary failover groups are suspended. To keep a fallback copy on AWS, run ALTER FAILOVER GROUP myfg RESUME on the AWS account, which is now the secondary." },
+    { t: "Retire AWS", short: "Keep a fallback window, then decommission",
+      aws: ["Secondary", "fallback, then retire"], az: ["Primary", "read / write"], url: "az", repl: "reverse", note: "Optional reverse refresh keeps AWS current until you decommission it.",
+      what: "Run on Azure for an agreed window. If something is wrong, fail back by promoting the AWS group and connection again. When confident, stop refreshes, retire the AWS account and clean up AWS-side stages and integrations.",
+      sql: "<span class=\"c\">-- Fail back, if needed (run on the AWS account)</span>\nALTER FAILOVER GROUP myfg PRIMARY;\nALTER CONNECTION myconnection PRIMARY;\n\n<span class=\"c\">-- Or, when done, stop replication (run on the AWS account)</span>\nALTER FAILOVER GROUP myfg SUSPEND;",
+      watch: "Replication is billed on the target account, so reverse refreshes cost money. Keep the fallback window as short as your risk appetite allows." },
+  ];
+  let cur = 0;
+  const $ = (id) => document.getElementById(id);
+  const stepsEl = $("steps");
+  states.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.innerHTML = '<span class="sn">' + (i + 1) + '</span><span>' + s.t + '<br><span style="font-weight:400;font-size:13px;color:#6B7C93">' + s.short + '</span></span>';
+    b.onclick = () => { cur = i; render(); };
+    stepsEl.appendChild(b);
+  });
+  function render() {
+    const s = states[cur];
+    [...stepsEl.children].forEach((b, i) => b.classList.toggle("on", i === cur));
+    $("awsRole").textContent = s.aws[0]; $("awsSub").textContent = s.aws[1];
+    $("azRole").textContent = s.az[0]; $("azSub").textContent = s.az[1] || "\u00a0";
+    $("azBox").style.opacity = s.az[0] === "Not created" ? 0.35 : 1;
+    $("toAws").style.opacity = s.url === "aws" ? 1 : 0.12;
+    $("toAz").style.opacity = s.url === "az" ? 1 : 0.12;
+    $("toAz").setAttribute("stroke-dasharray", s.url === "az" ? "6 4" : "");
+    $("toAz").setAttribute("stroke", s.url === "az" ? "#F2A900" : "#0B1F3A");
+    const r = $("repl"), rt = $("replTxt");
+    if (s.repl === "off") { r.style.opacity = 0; rt.style.opacity = 0; }
+    else {
+      r.style.opacity = 1; rt.style.opacity = 1;
+      if (s.repl === "on") { r.setAttribute("x1", 224); r.setAttribute("x2", 296); r.removeAttribute("stroke-dasharray"); rt.textContent = "refresh"; }
+      if (s.repl === "paused") { r.setAttribute("x1", 224); r.setAttribute("x2", 296); r.setAttribute("stroke-dasharray", "4 4"); rt.textContent = "suspended"; }
+      if (s.repl === "reverse") { r.setAttribute("x1", 296); r.setAttribute("x2", 224); r.setAttribute("stroke-dasharray", "4 4"); rt.textContent = "optional reverse"; }
+    }
+    $("note").textContent = s.note;
+    $("detail").innerHTML = '<span class="pill">Step ' + (cur + 1) + ' of ' + states.length + '</span><h3 style="margin-top:8px">' + s.t + '</h3><p>' + s.what + '</p><pre>' + s.sql + '</pre><div class="label watch">Watch for</div><p style="margin-top:2px">' + s.watch + '</p>';
+    $("prev").disabled = cur === 0; $("next").disabled = cur === states.length - 1;
+  }
+  $("prev").onclick = () => { if (cur > 0) { cur--; render(); } };
+  $("next").onclick = () => { if (cur < states.length - 1) { cur++; render(); } };
+  render();
+
+  // Cost estimator: example list rates per TB to a different cloud provider, Snowflake Service Consumption Table 4(a), effective Nov 4, 2026
+  const regions = [
+    ["US East (Northern Virginia)", 90], ["US West (Oregon)", 90], ["US East 2 (Ohio)", 90], ["Canada Central", 90],
+    ["EU Dublin", 90], ["EU Frankfurt", 90], ["Europe (London)", 90], ["EU (Paris)", 90], ["Europe (Stockholm)", 90], ["EU (Zurich)", 90],
+    ["AP Mumbai", 90], ["Asia Pacific (Malaysia)", 108], ["Asia Pacific (Thailand)", 108], ["AP Northeast 1 (Tokyo)", 114], ["Asia Pacific (Osaka)", 114],
+    ["Asia Pacific (New Zealand)", 114], ["AP Singapore", 120], ["Asia Pacific (Seoul)", 126], ["Asia Pacific (Jakarta)", 132],
+    ["AP Sydney", 140], ["South America East 1 (Sao Paulo)", 150], ["Africa (Cape Town)", 154],
+  ];
+  const sel = $("region");
+  regions.forEach(([n, r], i) => { const o = document.createElement("option"); o.value = r; o.textContent = n + " ($" + r + "/TB)"; sel.appendChild(o); });
+  const usd = (v) => v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  function calc() {
+    const rate = +sel.value, size = Math.max(0, +$("size").value || 0), chg = Math.max(0, +$("chg").value || 0);
+    const wks = Math.max(0, +$("wks").value || 0), stor = Math.max(0, +$("stor").value || 0);
+    const initial = size * rate, refresh = chg * wks * rate, storage = size * stor * (wks / 4.345);
+    $("r1").textContent = usd(initial); $("r1d").textContent = size + " TB x $" + rate + " per TB";
+    $("r2").textContent = usd(refresh); $("r2d").textContent = (chg * wks) + " TB changed x $" + rate + " per TB";
+    $("r3").textContent = usd(storage); $("r3d").textContent = size + " TB x $" + stor + " per TB-month x " + (wks / 4.345).toFixed(1) + " months";
+    $("rt").textContent = usd(initial + refresh + storage);
+  }
+  ["region", "size", "chg", "wks", "stor"].forEach((id) => $(id).addEventListener("input", calc));
+  calc();
+</script>
+</body>
+</html>

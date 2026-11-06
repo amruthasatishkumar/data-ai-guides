@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirror an Azure SQL Database into Microsoft Fabric: a practical how-to</title>
+<meta name="description" content="An independent, interactive how-to for mirroring Azure SQL Database into Microsoft Fabric OneLake: how it works, prerequisites, networking and authentication choices, setup, monitoring, limitations, costs and troubleshooting.">
+<style>
+  :root { --ink:#1b2430; --muted:#5b6676; --navy:#12355b; --navy2:#1d4a7a; --teal:#0f766e; --tealsoft:#e3f3f1; --amber:#b86e00; --ambersoft:#fff3da; --violet:#5b4a9e; --violetsoft:#eeeaf8; --rose:#b4234f; --rosesoft:#fde8ee; --line:#dbe3ec; --bg:#f4f7fa; --blue:#e8f0f8; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Arial,sans-serif; line-height:1.55; }
+  a { color:var(--navy2); }
+  .wrap { max-width:1080px; margin:0 auto; padding:36px 28px 56px; }
+  .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--teal); }
+  h1 { font-family:Georgia,serif; font-size:35px; line-height:1.15; margin:4px 0 8px; color:var(--navy); }
+  .lede { font-size:17px; color:#33404f; max-width:900px; margin:0 0 14px; }
+  h2 { font-size:22px; color:var(--navy); margin:42px 0 6px; scroll-margin-top:16px; }
+  h2 .num { display:inline-block; background:var(--navy); color:#fff; border-radius:6px; font-size:15px; padding:1px 9px; margin-right:8px; vertical-align:3px; }
+  h3 { font-size:16px; color:var(--navy); margin:18px 0 6px; }
+  .sub { color:var(--muted); margin:0 0 14px; }
+  p { margin:0 0 10px; }
+  code { font-family:Consolas,"Courier New",monospace; font-size:13px; background:#eef2f7; border:1px solid var(--line); border-radius:4px; padding:1px 5px; overflow-wrap:anywhere; }
+  pre { background:#0f2236; color:#e6eef7; border-radius:8px; padding:14px 16px; overflow-x:auto; font-family:Consolas,"Courier New",monospace; font-size:13px; line-height:1.5; margin:0; white-space:pre; }
+  pre .c { color:#8fb3d4; }
+  .code { position:relative; margin:8px 0 14px; }
+  .copy { position:absolute; top:8px; right:8px; background:#1d4a7a; color:#fff; border:1px solid #3c6a9c; border-radius:5px; font:600 12px "Segoe UI",Arial,sans-serif; padding:3px 10px; cursor:pointer; }
+  .copy:hover { background:#28609c; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px 18px; }
+  .card h3 { margin-top:0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  ul, ol { margin:6px 0 10px; padding-left:22px; } li { margin-bottom:6px; font-size:15px; }
+  .small, .small li { font-size:14px; }
+  .muted { color:var(--muted); }
+
+  .pills { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 18px; }
+  .pill { font-size:12.5px; font-weight:600; border-radius:999px; padding:3px 11px; border:1px solid; }
+  .pill.ga { background:var(--tealsoft); color:#0b5d57; border-color:#a9d8d2; }
+  .pill.pv { background:var(--ambersoft); color:#7a4a00; border-color:#f0dcae; }
+  .tag-pv { display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:var(--ambersoft); color:#7a4a00; border:1px solid #f0dcae; border-radius:3px; padding:0 6px; margin-left:4px; vertical-align:1px; }
+  .tag-paid { display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:var(--violetsoft); color:var(--violet); border:1px solid #d5cdee; border-radius:3px; padding:0 6px; margin-left:4px; vertical-align:1px; }
+
+  .toc { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 18px; columns:3; column-gap:30px; }
+  .toc a { color:var(--navy2); text-decoration:none; display:block; padding:2px 0; font-size:14.5px; break-inside:avoid; }
+  .toc a:hover { text-decoration:underline; }
+
+  .flow { display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin:16px 0 18px; }
+  .fs { position:relative; background:#fff; border:1px solid var(--line); padding:12px 12px 10px 14px; font-size:13.5px; }
+  .fs:first-child { border-radius:8px 0 0 8px; } .fs:last-child { border-radius:0 8px 8px 0; }
+  .fs b { display:block; color:var(--navy); font-size:14.5px; margin-bottom:2px; }
+  .fs .who { display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; border-radius:3px; padding:1px 6px; margin-bottom:5px; }
+  .who.az { background:var(--blue); color:var(--navy2); }
+  .who.fab { background:var(--tealsoft); color:#0b5d57; }
+  .who.you { background:var(--ambersoft); color:#7a4a00; }
+  .fs:not(:last-child):after { content:"\2192"; position:absolute; right:-11px; top:40%; background:var(--bg); color:var(--navy2); font-weight:700; z-index:2; width:20px; text-align:center; border-radius:10px; }
+
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); font-size:14px; margin:6px 0 12px; }
+  th { background:var(--navy); color:#fff; text-align:left; padding:8px 11px; font-weight:600; }
+  td { padding:8px 11px; border-top:1px solid var(--line); vertical-align:top; }
+  td.k { font-weight:600; color:var(--navy); }
+  .twrap { overflow-x:auto; }
+
+  .note { background:var(--ambersoft); border:1px solid #f0dcae; border-left:5px solid var(--amber); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .note b.h { color:#7a4a00; }
+  .ok { background:var(--tealsoft); border:1px solid #a9d8d2; border-left:5px solid var(--teal); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .ok b.h { color:#0b5d57; }
+  .info { background:#eef6ff; border:1px solid #c9dcf0; border-left:5px solid var(--navy2); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .bad { background:var(--rosesoft); border:1px solid #f3c2d0; border-left:5px solid var(--rose); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+
+  /* tabs */
+  .tabs { background:#fff; border:1px solid var(--line); border-radius:8px; margin:10px 0 16px; overflow:hidden; }
+  .tablist { display:flex; flex-wrap:wrap; background:#eef2f7; border-bottom:1px solid var(--line); }
+  .tablist button { background:none; border:0; border-bottom:3px solid transparent; padding:10px 16px; font:600 14px "Segoe UI",Arial,sans-serif; color:var(--muted); cursor:pointer; }
+  .tablist button[aria-selected="true"] { color:var(--navy); border-bottom-color:var(--teal); background:#fff; }
+  .tablist button:focus-visible { outline:2px solid var(--teal); outline-offset:-2px; }
+  .tabpanel { padding:16px 18px; }
+  .tabpanel[hidden] { display:none; }
+
+  /* checklist */
+  .progress { height:10px; background:#e3e9f0; border-radius:6px; overflow:hidden; margin:6px 0 4px; }
+  .progress > div { height:100%; width:0; background:linear-gradient(90deg,var(--teal),#14a394); transition:width .25s; }
+  .plabel { font-size:13.5px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .checklist { list-style:none; padding:0; margin:10px 0 0; }
+  .checklist li { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:8px; display:flex; gap:12px; align-items:flex-start; }
+  .checklist li.done { background:#f3faf9; border-color:#a9d8d2; }
+  .checklist input { width:18px; height:18px; margin-top:3px; accent-color:var(--teal); flex:none; cursor:pointer; }
+  .checklist label { cursor:pointer; font-size:14.5px; }
+  .checklist label b { color:var(--navy); }
+  .btn { background:#fff; color:var(--navy2); border:1px solid #b8c7d8; border-radius:6px; padding:5px 12px; font:600 13px "Segoe UI",Arial,sans-serif; cursor:pointer; }
+  .btn:hover { background:#eef4fa; }
+  .btn.primary { background:var(--navy2); color:#fff; border-color:var(--navy2); }
+  .btn.primary:hover { background:#28609c; }
+
+  /* helpers */
+  .tool { background:#fff; border:1px solid var(--line); border-top:4px solid var(--teal); border-radius:8px; padding:16px 18px; margin:10px 0 16px; }
+  .tool h3 { margin-top:0; }
+  .q { margin:0 0 12px; }
+  .q > b { display:block; color:var(--navy); font-size:14.5px; margin-bottom:4px; }
+  .opts { display:flex; flex-wrap:wrap; gap:8px; }
+  .opts label { display:inline-flex; align-items:center; gap:6px; background:#f6f8fb; border:1px solid var(--line); border-radius:6px; padding:5px 11px; font-size:14px; cursor:pointer; }
+  .opts label:has(input:checked) { background:var(--tealsoft); border-color:#7cc3ba; }
+  .opts input { accent-color:var(--teal); }
+  select { font:14px "Segoe UI",Arial,sans-serif; padding:6px 8px; border:1px solid #b8c7d8; border-radius:6px; background:#fff; color:var(--ink); max-width:100%; }
+  .result { border-radius:8px; padding:12px 16px; font-size:14.5px; margin-top:10px; }
+  .result.good { background:var(--tealsoft); border:1px solid #a9d8d2; }
+  .result.warn { background:var(--ambersoft); border:1px solid #f0dcae; }
+  .result.stop { background:var(--rosesoft); border:1px solid #f3c2d0; }
+  .result ul { margin:6px 0 0; }
+  .cbgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px 18px; margin:6px 0 4px; }
+  .cbgrid label { font-size:14px; display:flex; gap:8px; align-items:flex-start; cursor:pointer; }
+  .cbgrid input { margin-top:4px; accent-color:var(--teal); flex:none; }
+  .big { font-size:28px; font-weight:700; color:var(--teal); font-family:Georgia,serif; }
+
+  /* steps */
+  .steps { list-style:none; padding:0; counter-reset:st; }
+  .steps > li { position:relative; background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 18px 8px 58px; margin-bottom:12px; counter-increment:st; }
+  .steps > li:before { content:counter(st); position:absolute; left:16px; top:14px; width:28px; height:28px; border-radius:50%; background:var(--teal); color:#fff; font-weight:700; text-align:center; line-height:28px; font-size:14px; }
+  .steps > li > b.t { display:block; color:var(--navy); font-size:15.5px; margin-bottom:4px; }
+
+  /* faq */
+  details { background:#fff; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; }
+  details summary { cursor:pointer; padding:11px 16px; font-weight:600; color:var(--navy); font-size:15px; list-style:none; position:relative; padding-right:40px; }
+  details summary::-webkit-details-marker { display:none; }
+  details summary:after { content:"+"; position:absolute; right:16px; top:8px; font-size:20px; color:var(--teal); font-weight:700; }
+  details[open] summary:after { content:"\2212"; }
+  details .a { padding:0 16px 12px; font-size:14.5px; }
+  .faqbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 10px; }
+  .faqbar input { flex:1; min-width:200px; font:14px "Segoe UI",Arial,sans-serif; padding:7px 10px; border:1px solid #b8c7d8; border-radius:6px; }
+
+  .src { margin-top:34px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  .src a { color:var(--navy2); }
+  .src li { font-size:13px; margin-bottom:3px; }
+  @media (max-width:860px) { .grid2,.grid3,.flow,.cbgrid { grid-template-columns:1fr; } .toc { columns:1; } .fs { border-radius:8px !important; margin-bottom:8px; } .fs:after { display:none; } h1 { font-size:29px; } .steps > li { padding-left:50px; } .code pre { padding-top:38px; } }
+  @media print { body { background:#fff; } pre { white-space:pre-wrap; } .copy, .btn, .faqbar { display:none; } .tabpanel[hidden] { display:block; } .card,.note,.ok,.info,table,.tool { break-inside:avoid; } }
+
+  .site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+  .site-foot a { color:#1d4a7a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Microsoft Fabric + Azure SQL Database</div>
+  <h1>Mirror an Azure SQL Database into Microsoft Fabric</h1>
+  <p class="lede">A practical, interactive how-to for <b>Fabric mirroring</b>: a managed, no-ETL way to keep a read-only, analytics-ready copy of your Azure SQL Database tables in OneLake. Learn how it works, what to prepare, how to choose networking and authentication, how to set it up and check it, and where the limits and costs are.</p>
+  <div class="pills" aria-label="Feature status">
+    <span class="pill ga">Azure SQL Database mirroring: listed without a preview label</span>
+    <span class="pill pv">User-assigned managed identity: preview</span>
+    <span class="pill pv">Network security perimeter: preview</span>
+    <span class="pill pv">Microsoft Entra server logins (Azure SQL): preview</span>
+  </div>
+
+  <div class="flow" aria-label="How mirroring flows">
+    <div class="fs"><span class="who az">Azure SQL</span><b>1. Source</b>Your database keeps serving its apps. Mirroring reads committed changes from the transaction log.</div>
+    <div class="fs"><span class="who az">Azure SQL</span><b>2. Publish</b>The server's managed identity writes snapshot and change files to a landing zone in OneLake.</div>
+    <div class="fs"><span class="who fab">Fabric</span><b>3. Merge</b>A replicator engine merges the incoming changes into Delta tables.</div>
+    <div class="fs"><span class="who fab">Fabric</span><b>4. Query</b>A read-only SQL analytics endpoint is created automatically for T-SQL.</div>
+    <div class="fs"><span class="who you">You</span><b>5. Use</b>Power BI Direct Lake, Spark notebooks, cross-database queries and sharing.</div>
+  </div>
+  <p class="small muted" style="margin-top:-6px">Example names used below: server <code>&lt;your-server&gt;.database.windows.net</code>, database <code>SalesDB</code>, login <code>fabric_login</code>. Replace them with yours.</p>
+
+  <nav class="toc" aria-label="Contents">
+    <a href="#what">1. What mirroring is</a>
+    <a href="#how">2. How it works</a>
+    <a href="#prereq">3. Prerequisites checklist</a>
+    <a href="#network">4. Choose networking</a>
+    <a href="#auth">5. Choose authentication</a>
+    <a href="#setup">6. Step-by-step setup</a>
+    <a href="#get">7. What you get</a>
+    <a href="#monitor">8. Monitoring</a>
+    <a href="#limits">9. Limitations</a>
+    <a href="#cost">10. Costs</a>
+    <a href="#security">11. Security</a>
+    <a href="#trouble">12. Troubleshooting</a>
+    <a href="#faq">13. FAQ</a>
+    <a href="#sources">Sources</a>
+  </nav>
+
+  <!-- 1 WHAT -->
+  <h2 id="what"><span class="num">1</span>What database mirroring is</h2>
+  <p class="sub">Mirroring continuously replicates data from an operational database into OneLake, the single data lake behind Microsoft Fabric. You don't build or schedule pipelines. Fabric manages the replication.</p>
+  <div class="grid3">
+    <div class="card">
+      <h3>What it does</h3>
+      <ul class="small">
+        <li>Takes an initial snapshot of the tables you choose, then keeps them in sync in near real time.</li>
+        <li>Stores the copy as Delta Lake tables (Parquet files) in OneLake.</li>
+        <li>Gives you a read-only SQL analytics endpoint over those tables.</li>
+        <li>You can mirror the whole database or pick individual tables.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What it isn't</h3>
+      <ul class="small">
+        <li>Not a writable copy. You can't insert, update or delete mirrored data through the SQL analytics endpoint.</li>
+        <li>Not a backup or failover target for your Azure SQL Database.</li>
+        <li>Not a transformation tool. Shape data afterwards with views, notebooks or other Fabric items.</li>
+        <li>Not the same as <b>SQL database in Fabric</b>, which is a database created inside Fabric that mirrors itself automatically.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Three kinds of mirroring</h3>
+      <ul class="small">
+        <li><b>Database mirroring</b> copies tables into OneLake. Azure SQL Database uses this kind.</li>
+        <li><b>Metadata mirroring</b> syncs catalog metadata and uses shortcuts, so data stays in the source.</li>
+        <li><b>Open mirroring</b> lets an application write change data into a mirrored database through public APIs.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="info"><b>Good fit:</b> you want reporting, analytics, data science or AI over operational data without running heavy queries on the production database and without maintaining ETL jobs. Mirroring is described by Microsoft as low cost and low latency, with near real-time replication.</div>
+
+  <!-- 2 HOW -->
+  <h2 id="how"><span class="num">2</span>How it works</h2>
+  <p class="sub">Select a stage to see what happens.</p>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="How mirroring works">
+      <button role="tab" aria-selected="true" aria-controls="how-1" id="how-1-t">Initial snapshot</button>
+      <button role="tab" aria-selected="false" aria-controls="how-2" id="how-2-t" tabindex="-1">Continuous replication</button>
+      <button role="tab" aria-selected="false" aria-controls="how-3" id="how-3-t" tabindex="-1">Delta tables in OneLake</button>
+      <button role="tab" aria-selected="false" aria-controls="how-4" id="how-4-t" tabindex="-1">SQL analytics endpoint</button>
+      <button role="tab" aria-selected="false" aria-controls="how-5" id="how-5-t" tabindex="-1">Semantic models</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="how-1" aria-labelledby="how-1-t">
+      <p>When you start mirroring, Fabric copies the current contents of every selected table. How long this takes depends on the size of the data.</p>
+      <ul class="small">
+        <li>The snapshot and later change data land first in a <b>landing zone in OneLake</b>, inside your own tenant. Data isn't staged outside your environment.</li>
+        <li>During the snapshot, expect extra CPU and IOPS on the source database while pages are read.</li>
+        <li>In the portal, table status moves to <b>Running</b>, and a date appears in <b>Last completed</b> when a table's initial copy is done.</li>
+        <li>Stopping and restarting replication, or certain schema changes, cause a new snapshot (a <b>reseed</b>) of the affected tables.</li>
+      </ul>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="how-2" aria-labelledby="how-2-t" hidden>
+      <p>After the snapshot, the source publishes committed inserts, updates and deletes from its transaction log. Inside Fabric, a replicator engine scans for newly published files and merges them into the target Delta tables.</p>
+      <ul class="small">
+        <li>Microsoft describes the latency as <b>near real time</b>. Its overview says changes can be published as fast as every 15 seconds, and backoff logic reduces overhead when activity is low.</li>
+        <li>Actual latency depends on the source and destination regions, the volume and frequency of changes, and network bandwidth (plus gateway resources if you use an on-premises data gateway).</li>
+        <li>Active transactions hold back log truncation until they commit and mirroring catches up. Watch the source transaction log during long-running transactions.</li>
+        <li>There's a maximum of 1 TB of change data captured per mirrored database per day. Above that, replication is throttled until the next window.</li>
+      </ul>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="how-3" aria-labelledby="how-3-t" hidden>
+      <p>Mirrored data is stored in OneLake as V-Ordered Delta Lake tables, an open format that Spark, Power BI and many other tools can read.</p>
+      <ul class="small">
+        <li>The source schema hierarchy (for example <code>dbo</code>, <code>sales</code>) is preserved for newly created mirrored databases.</li>
+        <li>Mirroring automatically runs vacuum to remove old Delta files. For mirrored databases created in the portal after mid-June 2025, the default retention is one day. You can change it under <b>Settings &gt; Delta table management</b>.</li>
+        <li>Delta stores six fractional-second digits, so <code>datetime2(7)</code> values lose the seventh digit. See <a href="#limits">Limitations</a>.</li>
+      </ul>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="how-4" aria-labelledby="how-4-t" hidden>
+      <p>Each mirrored database gets an autogenerated, read-only <b>SQL analytics endpoint</b>. It's the same experience as the lakehouse SQL analytics endpoint.</p>
+      <ul class="small">
+        <li>Query tables with T-SQL in the Fabric SQL query editor, SQL Server Management Studio, or the MSSQL extension for Visual Studio Code.</li>
+        <li>Create views, inline table-valued functions and stored procedures to hold business logic.</li>
+        <li>Manage permissions on objects, and query other warehouses and lakehouses in the same workspace.</li>
+        <li>New data can take a moment to appear here after it lands in OneLake because of metadata sync. You can force a refresh from the endpoint page.</li>
+      </ul>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="how-5" aria-labelledby="how-5-t" hidden>
+      <div class="note"><b class="h">Changed in 2025:</b> since September 5, 2025, Fabric no longer creates a <i>default</i> Power BI semantic model when you create a mirrored database. By November 30, 2025, existing default semantic models were disconnected from their items and became independent semantic models.</div>
+      <p class="small">If you need a semantic model, create one yourself from the mirrored database's SQL analytics endpoint. New semantic models created on a warehouse or SQL analytics endpoint use <b>Direct Lake</b> storage mode, which reads the Delta files directly. Because the mirrored tables are V-Ordered Delta tables, Power BI reports on mirrored data can use Direct Lake.</p>
+    </div>
+  </div>
+
+  <!-- 3 PREREQ -->
+  <h2 id="prereq"><span class="num">3</span>Prerequisites checklist</h2>
+  <p class="sub">Tick each item as you confirm it. Your progress is saved in this browser only.</p>
+  <div class="plabel"><span id="prog-text">0 of 0 confirmed</span><button class="btn" id="prog-reset" type="button">Reset checklist</button></div>
+  <div class="progress" role="progressbar" aria-label="Prerequisites confirmed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="prog-bar"></div></div>
+  <ul class="checklist" id="checklist">
+    <li><input type="checkbox" id="c1"><label for="c1"><b>A supported source database.</b> A single database or a database in an elastic pool. Any vCore service tier works. In the DTU model, Free, Basic and Standard databases with fewer than 100 DTUs aren't supported. Use the tier checker below. It must be a writable primary database.</label></li>
+    <li><input type="checkbox" id="c2"><label for="c2"><b>A test copy to start with.</b> Microsoft recommends trying mirroring first on a copy of an existing database, or a test or development database you can quickly restore from backup.</label></li>
+    <li><input type="checkbox" id="c3"><label for="c3"><b>No blockers on the database.</b> Change Data Capture (CDC) isn't enabled, Azure Synapse Link for SQL isn't enabled, delayed transaction durability isn't enabled, and the database isn't already mirrored to another Fabric workspace.</label></li>
+    <li><input type="checkbox" id="c4"><label for="c4"><b>Same Microsoft Entra tenant.</b> The Azure SQL Database and the Fabric workspace are in the same tenant. Cross-tenant mirroring isn't supported.</label></li>
+    <li><input type="checkbox" id="c5"><label for="c5"><b>A running Fabric capacity.</b> A Fabric capacity, Power BI Premium capacity, or trial capacity, active and not paused. A paused or deleted capacity stops replication.</label></li>
+    <li><input type="checkbox" id="c6"><label for="c6"><b>Two Fabric tenant settings enabled</b> by a Fabric administrator: <i>Service principals can call Fabric public APIs</i>, and <i>Users can access data stored in OneLake with apps external to Fabric</i>.</label></li>
+    <li><input type="checkbox" id="c7"><label for="c7"><b>Admin or Member role in the workspace.</b> Contributors can't complete setup, because Fabric must reshare the item with the server's managed identity.</label></li>
+    <li><input type="checkbox" id="c8"><label for="c8"><b>A managed identity on the logical server.</b> The system-assigned managed identity (SAMI), or a user-assigned managed identity (UAMI, preview), is enabled and set as the server's <b>primary</b> identity.</label></li>
+    <li><input type="checkbox" id="c9"><label for="c9"><b>A network path from Fabric to the server.</b> Public access with "Allow Azure services" enabled, or a virtual network data gateway, or an on-premises data gateway. See <a href="#network">Choose networking</a>.</label></li>
+    <li><input type="checkbox" id="c10"><label for="c10"><b>A database principal for Fabric</b> with <code>SELECT</code>, <code>ALTER ANY EXTERNAL MIRROR</code>, <code>VIEW DATABASE PERFORMANCE STATE</code> and <code>VIEW DATABASE SECURITY STATE</code>. See <a href="#auth">Choose authentication</a>.</label></li>
+    <li><input type="checkbox" id="c11"><label for="c11"><b>Tables reviewed against the limitations.</b> Use the <a href="#limits">table checker</a> for tables with special types or features.</label></li>
+  </ul>
+
+  <div class="tool" id="tier-tool">
+    <h3>Tier checker: is my database supported?</h3>
+    <div class="q"><b>Purchasing model and tier</b>
+      <select id="tier-sel" aria-label="Purchasing model and tier">
+        <option value="">Select your database tier...</option>
+        <option value="vc-gp">vCore: General Purpose (provisioned or serverless)</option>
+        <option value="vc-bc">vCore: Business Critical</option>
+        <option value="vc-hs">vCore: Hyperscale</option>
+        <option value="dtu-free">DTU model: Free</option>
+        <option value="dtu-basic">DTU model: Basic</option>
+        <option value="dtu-s-low">DTU model: Standard S0, S1 or S2 (under 100 DTUs)</option>
+        <option value="dtu-s-high">DTU model: Standard S3 or higher (100 DTUs or more)</option>
+        <option value="dtu-prem">DTU model: Premium</option>
+      </select>
+    </div>
+    <div class="q"><b>Role of this database</b>
+      <div class="opts" role="radiogroup" aria-label="Database role">
+        <label><input type="radio" name="role" value="primary" checked> Writable primary</label>
+        <label><input type="radio" name="role" value="secondary"> Readable secondary or geo-replica</label>
+      </div>
+    </div>
+    <div id="tier-out" class="result warn" aria-live="polite">Choose a tier to see the result.</div>
+  </div>
+
+  <!-- 4 NETWORK -->
+  <h2 id="network"><span class="num">4</span>Choose networking</h2>
+  <p class="sub">Mirroring needs two connections: Fabric connects <b>in</b> to your logical server to set up and monitor mirroring, and the database connects <b>out</b> to OneLake, using its managed identity, to publish data.</p>
+  <div class="tool" id="net-tool">
+    <h3>Networking helper</h3>
+    <div class="q"><b>1. Is public network access enabled on the logical server, with "Allow Azure services and resources to access this server" turned on?</b>
+      <div class="opts">
+        <label><input type="radio" name="n1" value="yes"> Yes</label>
+        <label><input type="radio" name="n1" value="no"> No, it's private or locked down</label>
+      </div>
+    </div>
+    <div class="q" id="n2wrap" hidden><b>2. Where can the server be reached from?</b>
+      <div class="opts">
+        <label><input type="radio" name="n2" value="vnet"> From an Azure virtual network (for example through a private endpoint)</label>
+        <label><input type="radio" name="n2" value="onprem"> From a network where I can run a gateway machine (on-premises or a VM)</label>
+      </div>
+    </div>
+    <div class="q"><b>3. Is the logical server associated with a network security perimeter?</b>
+      <div class="opts">
+        <label><input type="radio" name="n3" value="no" checked> No</label>
+        <label><input type="radio" name="n3" value="yes"> Yes</label>
+      </div>
+    </div>
+    <div class="q"><b>4. Is inbound access to OneLake restricted for the target Fabric workspace?</b>
+      <div class="opts">
+        <label><input type="radio" name="n4" value="no" checked> No</label>
+        <label><input type="radio" name="n4" value="yes"> Yes</label>
+      </div>
+    </div>
+    <div id="net-out" class="result warn" aria-live="polite">Answer question 1 to get a recommendation.</div>
+  </div>
+  <div class="twrap"><table>
+    <tr><th style="width:24%">Option</th><th>When to use it</th><th style="width:30%">Notes</th></tr>
+    <tr><td class="k">Public endpoint, no gateway</td><td>The server is publicly accessible and allows Azure services to connect. Choose <b>None</b> for the data gateway when you create the connection.</td><td class="small">"Allow Azure services" permits traffic from all Azure resources, not only yours. Some organizations consider it too permissive.</td></tr>
+    <tr><td class="k">Virtual network data gateway</td><td>The server is reachable only from an Azure virtual network, for example through a private endpoint.</td><td class="small">Fully managed. Available on P, F, and A4 or higher SKUs. Microsoft recommends F8 or above for F SKUs, but all F SKUs work.</td></tr>
+    <tr><td class="k">On-premises data gateway</td><td>You prefer a self-managed gateway machine on a network that can reach the server through a private endpoint or an allowed firewall rule.</td><td class="small">You run and size the machine. Its compute resources can affect replication latency.</td></tr>
+    <tr><td class="k">Network security perimeter <span class="tag-pv">Preview</span></td><td>The logical server is in a perimeter.</td><td class="small">Add an inbound rule for the <code>DataFactory</code>, <code>PowerBI</code> and <code>PowerQueryOnline</code> service tags, and an outbound FQDN rule for OneLake.</td></tr>
+    <tr><td class="k">OneLake Resource Instance Rule</td><td>The target workspace restricts inbound access to OneLake.</td><td class="small">A workspace admin adds the Azure SQL server's resource ID, so you don't track its dynamic outbound IPs.</td></tr>
+  </table></div>
+
+  <!-- 5 AUTH -->
+  <h2 id="auth"><span class="num">5</span>Choose authentication</h2>
+  <p class="sub">Two identities are involved, and they do different jobs.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Server managed identity: writes to OneLake</h3>
+      <p class="small">The logical server's SAMI or UAMI <span class="tag-pv">Preview</span> publishes data to OneLake. It must be enabled and must be the server's primary identity. When you create the mirror in the Fabric portal, this identity is automatically granted <b>Read and write</b> on the mirrored database item. Don't remove that permission.</p>
+    </div>
+    <div class="card">
+      <h3>Connection principal: Fabric reads the source</h3>
+      <p class="small">Fabric connects to the database with a principal you create, with the four permissions listed below. Pick the type in the chooser. Follow least privilege and use a dedicated principal rather than an admin account.</p>
+    </div>
+  </div>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="Authentication methods">
+      <button role="tab" aria-selected="true" aria-controls="au-1" id="au-1-t">Basic (SQL authentication)</button>
+      <button role="tab" aria-selected="false" aria-controls="au-2" id="au-2-t" tabindex="-1">Organizational account (Entra ID)</button>
+      <button role="tab" aria-selected="false" aria-controls="au-3" id="au-3-t" tabindex="-1">Service principal</button>
+      <button role="tab" aria-selected="false" aria-controls="au-4" id="au-4-t" tabindex="-1">Workspace identity</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="au-1" aria-labelledby="au-1-t">
+      <p class="small"><b>Good for:</b> quick tests, or when Microsoft Entra authentication isn't set up on the server. Store the password safely and rotate it per your policy. In Fabric, choose <b>Basic</b> and enter the user name and password.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- 1. In the master database</span>
+CREATE LOGIN [fabric_login] WITH PASSWORD = '&lt;strong password&gt;';
+
+<span class="c">-- 2. In the user database you will mirror (SalesDB)</span>
+CREATE USER [fabric_user] FOR LOGIN [fabric_login];
+GRANT SELECT, ALTER ANY EXTERNAL MIRROR,
+      VIEW DATABASE PERFORMANCE STATE, VIEW DATABASE SECURITY STATE
+   TO [fabric_user];</pre></div>
+      <p class="small muted">Microsoft's security guidance also allows a contained database user with a strong password instead of a login.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="au-2" aria-labelledby="au-2-t" hidden>
+      <p class="small"><b>Good for:</b> organizations that standardize on Microsoft Entra ID. Sign in as the server's Microsoft Entra admin to run this. In Fabric, choose <b>Organizational account</b>.</p>
+      <div class="note small"><b class="h">Preview:</b> Microsoft Entra server principals (logins) are in preview for Azure SQL Database. Users created from Entra logins can see delays when roles and permissions are granted. See <a href="#trouble">Troubleshooting</a> for the documented fix.</div>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- 1. In the master database</span>
+CREATE LOGIN [user@contoso.com] FROM EXTERNAL PROVIDER;
+
+<span class="c">-- 2. In SalesDB</span>
+CREATE USER [user@contoso.com] FOR LOGIN [user@contoso.com];
+GRANT SELECT, ALTER ANY EXTERNAL MIRROR,
+      VIEW DATABASE PERFORMANCE STATE, VIEW DATABASE SECURITY STATE
+   TO [user@contoso.com];</pre></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="au-3" aria-labelledby="au-3-t" hidden>
+      <p class="small"><b>Good for:</b> a non-person identity that isn't tied to an employee account. In Fabric, choose <b>Service principal</b> and enter the tenant ID, client ID and client secret.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- 1. In the master database (as the Microsoft Entra admin)</span>
+CREATE LOGIN [&lt;service principal name&gt;] FROM EXTERNAL PROVIDER;
+
+<span class="c">-- 2. In SalesDB</span>
+CREATE USER [&lt;service principal name&gt;] FOR LOGIN [&lt;service principal name&gt;];
+GRANT SELECT, ALTER ANY EXTERNAL MIRROR,
+      VIEW DATABASE PERFORMANCE STATE, VIEW DATABASE SECURITY STATE
+   TO [&lt;service principal name&gt;];</pre></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="au-4" aria-labelledby="au-4-t" hidden>
+      <p class="small"><b>Good for:</b> avoiding stored secrets by using the Fabric workspace identity. In Fabric, choose <b>Workspace identity</b>.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- 1. In the master database (as the Microsoft Entra admin)</span>
+CREATE LOGIN [&lt;workspace identity name&gt;] FROM EXTERNAL PROVIDER;
+
+<span class="c">-- 2. In SalesDB</span>
+CREATE USER [&lt;workspace identity name&gt;] FOR LOGIN [&lt;workspace identity name&gt;];
+GRANT SELECT, ALTER ANY EXTERNAL MIRROR,
+      VIEW DATABASE PERFORMANCE STATE, VIEW DATABASE SECURITY STATE
+   TO [&lt;workspace identity name&gt;];</pre></div>
+      <p class="small muted">The setup tutorial lists workspace identity as an authentication kind. The Azure SQL mirroring FAQ currently lists only SQL authentication, Microsoft Entra ID and service principal, so confirm availability in your tenant.</p>
+    </div>
+  </div>
+  <p class="small muted"><code>ALTER ANY EXTERNAL MIRROR</code> is also included in higher-level permissions such as <code>CONTROL</code> or the <code>db_owner</code> role, but granting only the four permissions above follows least privilege.</p>
+
+  <!-- 6 SETUP -->
+  <h2 id="setup"><span class="num">6</span>Step-by-step setup</h2>
+  <p class="sub">Follow these in order. Steps 1 to 3 happen in Azure, steps 4 to 8 in the Fabric portal.</p>
+  <ol class="steps">
+    <li><b class="t">Enable the server's managed identity</b>
+      <div class="tabs" data-tabs>
+        <div class="tablist" role="tablist" aria-label="Managed identity type">
+          <button role="tab" aria-selected="true" aria-controls="mi-1" id="mi-1-t">System-assigned (SAMI)</button>
+          <button role="tab" aria-selected="false" aria-controls="mi-2" id="mi-2-t" tabindex="-1">User-assigned (UAMI) preview</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="mi-1" aria-labelledby="mi-1-t">
+          <ol class="small">
+            <li>In the Azure portal, open your logical SQL server (not the database).</li>
+            <li>Under <b>Security</b>, select <b>Identity</b>.</li>
+            <li>Under <b>System assigned managed identity</b>, set <b>Status</b> to <b>On</b> and save.</li>
+            <li>Confirm it's the primary identity with the query below.</li>
+          </ol>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="mi-2" aria-labelledby="mi-2-t" hidden>
+          <ol class="small">
+            <li>Create a user-assigned managed identity if you don't have one.</li>
+            <li>On the logical server, under <b>Security &gt; Identity</b>, add the UAMI as the <b>primary</b> identity.</li>
+            <li>If the database is <i>already</i> mirrored with SAMI, first grant the UAMI <b>Read and write</b> on the mirrored database item (<b>...</b> &gt; <b>Manage permissions</b> &gt; <b>Add user</b>, matching the AppID to <code>client_id</code>), then make it primary. Keep the old identity's permissions for at least 15 minutes.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- Run on the logical server. is_primary = 1 shows the identity mirroring will use.</span>
+SELECT * FROM sys.dm_server_managed_identities;</pre></div>
+    </li>
+    <li><b class="t">Open a network path</b>
+      <p class="small">Use the <a href="#network">networking helper</a>. If you need a gateway, create a <a href="https://learn.microsoft.com/en-us/data-integration/vnet/create-data-gateways">virtual network data gateway</a> or <a href="https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-install">install an on-premises data gateway</a> before you create the connection. If the target workspace restricts inbound OneLake access, ask a workspace admin to add the server's Azure resource ID as a Resource Instance Rule.</p>
+    </li>
+    <li><b class="t">Create the database principal for Fabric</b>
+      <p class="small">Connect to the server with SSMS or the MSSQL extension for VS Code, then run the script for your <a href="#auth">authentication choice</a>: create the login in <code>master</code>, then the user and the four grants in <code>SalesDB</code>.</p>
+    </li>
+    <li><b class="t">Create the mirrored database item</b>
+      <p class="small">In the <a href="https://app.fabric.microsoft.com">Fabric portal</a>, open a workspace where you're Admin or Member. Select <b>Create</b>, scroll to <b>Data Warehouse</b>, and choose <b>Mirrored Azure SQL Database</b>. Give it a name, then select <b>Create</b>.</p>
+    </li>
+    <li><b class="t">Connect to the source</b>
+      <p class="small">Under <b>New sources</b>, choose <b>Azure SQL Database</b> (or reuse an existing connection from the OneLake hub) and fill in:</p>
+      <table>
+        <tr><th style="width:30%">Field</th><th>Value</th></tr>
+        <tr><td class="k">Server</td><td><code>&lt;your-server&gt;.database.windows.net</code>, from the database's Overview page. For geo-failover, use the failover group's read-write listener.</td></tr>
+        <tr><td class="k">Database</td><td><code>SalesDB</code></td></tr>
+        <tr><td class="k">Connection / name</td><td>Create a new connection. An automatic name is suggested.</td></tr>
+        <tr><td class="k">Data gateway</td><td><b>None</b> for public access, or your virtual network or on-premises data gateway.</td></tr>
+        <tr><td class="k">Authentication kind</td><td>Basic, Organizational account, Service principal, or Workspace identity, matching step 3.</td></tr>
+      </table>
+      <p class="small">Select <b>Connect</b>.</p>
+    </li>
+    <li><b class="t">Choose what to mirror</b>
+      <ul class="small">
+        <li><b>Mirror all data</b> (default): includes tables created later. If there are more than 1,000 tables, only the first 1,000 sorted by schema name then table name are mirrored.</li>
+        <li><b>Select tables</b>: clear <b>Mirror all data</b> and pick tables. You can't select more than 1,000.</li>
+      </ul>
+    </li>
+    <li><b class="t">Start mirroring and watch it come up</b>
+      <p class="small">Select <b>Mirror database</b>. Wait 2 to 5 minutes, then select <b>Monitor replication</b>. Status should change to <b>Running</b>. When a table's initial copy finishes, a date appears in the last refresh or <b>Last completed</b> column. If tables don't show yet, wait a few seconds and refresh the panel.</p>
+    </li>
+    <li><b class="t">Prove it end to end</b>
+      <p class="small">Make one small, harmless change in a <b>test</b> source database, then read it from Fabric. The table and column names here are examples.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- A. In Azure SQL Database (the source), on a test row</span>
+UPDATE dbo.Orders
+SET    Status = N'Mirroring check', ModifiedUtc = SYSUTCDATETIME()
+WHERE  OrderId = 1001;
+
+SELECT OrderId, Status, ModifiedUtc FROM dbo.Orders WHERE OrderId = 1001;</pre></div>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- B. In Fabric, on the mirrored database's SQL analytics endpoint (read-only)</span>
+SELECT OrderId, Status, ModifiedUtc,
+       (SELECT COUNT(*) FROM dbo.Orders) AS OrderCount
+FROM   dbo.Orders
+WHERE  OrderId = 1001;</pre></div>
+      <p class="small">Compare the value and timestamp. If they don't match yet, wait and rerun the read query, rather than repeating the update. Replication is near real time, not instant.</p>
+    </li>
+  </ol>
+  <div class="note"><b class="h">Don't skip this:</b> row-level security, column (object-level) permissions, dynamic data masking and sensitivity labels in the source are <b>not</b> carried over. Reconfigure the security you need in Fabric before you share the mirrored data. See <a href="#security">Security</a>.</div>
+
+  <!-- 7 GET -->
+  <h2 id="get"><span class="num">7</span>What you get after mirroring</h2>
+  <div class="grid3">
+    <div class="card"><h3>Mirrored database item</h3><p class="small">Manages replication and its settings: tables, retention, connection, and replication status. Mirrored databases are an item in Fabric Data Warehousing, separate from the Warehouse item.</p></div>
+    <div class="card"><h3>SQL analytics endpoint</h3><p class="small">Read-only T-SQL over the Delta tables. Add views, inline TVFs, stored procedures and object permissions. Works with the Fabric query editor, SSMS and VS Code.</p></div>
+    <div class="card"><h3>Delta tables in OneLake</h3><p class="small">Open-format tables that other Fabric engines can use. For example, create a lakehouse shortcut to the mirrored tables and query them from Spark notebooks.</p></div>
+    <div class="card"><h3>Power BI with Direct Lake</h3><p class="small">Create a semantic model on the SQL analytics endpoint and report in Direct Lake mode, without importing the data. No default model is created for you.</p></div>
+    <div class="card"><h3>Cross-database queries</h3><p class="small">Join mirrored tables with warehouses and lakehouse SQL analytics endpoints in one T-SQL query, using three-part names.</p></div>
+    <div class="card"><h3>Item-level sharing</h3><p class="small">Share the mirrored database without giving workspace access. Options include "Read all SQL analytics endpoint data" and "Read all OneLake data".</p></div>
+  </div>
+  <h3>Example: rebuild a computed column on the Fabric side</h3>
+  <p class="small">Computed columns aren't mirrored. Recreate the logic in a view on the SQL analytics endpoint (example names):</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- On the SQL analytics endpoint of the mirrored database</span>
+CREATE VIEW dbo.vw_OrderLines AS
+SELECT OrderId, LineNumber, Quantity, UnitPrice,
+       Quantity * UnitPrice AS LineTotal   <span class="c">-- was a computed column in the source</span>
+FROM   dbo.OrderLines;</pre></div>
+
+  <!-- 8 MONITOR -->
+  <h2 id="monitor"><span class="num">8</span>Monitoring</h2>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="Monitoring options">
+      <button role="tab" aria-selected="true" aria-controls="mo-1" id="mo-1-t">Fabric portal</button>
+      <button role="tab" aria-selected="false" aria-controls="mo-2" id="mo-2-t" tabindex="-1">Workspace monitoring</button>
+      <button role="tab" aria-selected="false" aria-controls="mo-3" id="mo-3-t" tabindex="-1">REST API</button>
+      <button role="tab" aria-selected="false" aria-controls="mo-4" id="mo-4-t" tabindex="-1">Source database checks</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="mo-1" aria-labelledby="mo-1-t">
+      <p class="small">Open the mirrored database and select <b>Monitor replication</b>.</p>
+      <table>
+        <tr><th style="width:26%">Status</th><th>Meaning</th></tr>
+        <tr><td class="k">Running</td><td>Snapshot and change data are flowing into OneLake.</td></tr>
+        <tr><td class="k">Running with warning</td><td>Replication continues, with transient (database) or nonfatal (table) errors.</td></tr>
+        <tr><td class="k">Stopping / Stopped</td><td>Replication has stopped.</td></tr>
+        <tr><td class="k">Failed</td><td>A fatal error that replication can't recover from.</td></tr>
+        <tr><td class="k">Paused</td><td>Database level only. Happens after the Fabric capacity is paused and resumed. Select <b>Resume replication</b>.</td></tr>
+      </table>
+      <p class="small">Per table you also see <b>Rows replicated</b> (cumulative inserts, updates and deletes) and <b>Last completed</b>. An empty <b>Last completed</b> means the table isn't mirrored yet.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="mo-2" aria-labelledby="mo-2-t" hidden>
+      <p class="small">Turn on <b>workspace monitoring</b> in workspace settings. Mirrored database execution logs then flow into the <code>MirroredDatabaseTableExecution</code> table in the monitoring KQL database. Query them with KQL, build Power BI or Real-Time Dashboards, and set alerts. To check latency, query the <code>ReplicatorBatchLatency</code> value in these operation logs.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="mo-3" aria-labelledby="mo-3-t" hidden>
+      <p class="small">The Microsoft Fabric mirroring public REST API (and SDK) can return mirroring status for a mirrored database and for specific tables. It's useful for automated health checks. If you create mirrored databases through the API or CI/CD, you must also grant the server's managed identity Read and write on the item yourself.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="mo-4" aria-labelledby="mo-4-t" hidden>
+      <p class="small">Run these on the source Azure SQL Database:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c">-- Are changes flowing?</span>
+SELECT * FROM sys.dm_change_feed_log_scan_sessions;
+
+<span class="c">-- Any errors reported?</span>
+SELECT * FROM sys.dm_change_feed_errors;
+
+<span class="c">-- Per-table configuration. A state other than 4 suggests a problem.</span>
+EXEC sp_help_change_feed;
+
+<span class="c">-- Is mirroring holding up log truncation? Look for REPLICATION.</span>
+SELECT [name], log_reuse_wait_desc
+FROM   sys.databases
+WHERE  is_data_lake_replication_enabled = 1;</pre></div>
+    </div>
+  </div>
+
+  <!-- 9 LIMITS -->
+  <h2 id="limits"><span class="num">9</span>Limitations</h2>
+  <p class="sub">Microsoft notes that this list is subject to change. Check the limitations page before you commit to a design.</p>
+  <div class="tool" id="tbl-tool">
+    <h3>Table checker: will this table mirror?</h3>
+    <p class="small muted" style="margin-bottom:6px">Tick everything that applies to one source table.</p>
+    <div class="cbgrid">
+      <label><input type="checkbox" value="view"> It's a view, not a table</label>
+      <label><input type="checkbox" value="history"> Temporal history table or ledger history table</label>
+      <label><input type="checkbox" value="ae"> Uses Always Encrypted</label>
+      <label><input type="checkbox" value="inmem"> In-memory (memory-optimized) table</label>
+      <label><input type="checkbox" value="graph"> Graph table</label>
+      <label><input type="checkbox" value="ext"> External table</label>
+      <label><input type="checkbox" value="cci"> Has a clustered columnstore index</label>
+      <label><input type="checkbox" value="json"> Has a <code>json</code> or <code>vector</code> column</label>
+      <label><input type="checkbox" value="pktype"> Primary key (or clustered index) uses a computed column, UDT, geometry, geography, hierarchyid, sql_variant, timestamp, datetime2(7), datetimeoffset(7) or time(7)</label>
+      <label><input type="checkbox" value="nopk"> Has no primary key</label>
+      <label><input type="checkbox" value="computed"> Has computed columns (not in the key)</label>
+      <label><input type="checkbox" value="badcol"> Has image, text, ntext, xml, rowversion/timestamp, sql_variant, UDT, geometry or geography columns</label>
+      <label><input type="checkbox" value="dt7"> Has datetime2(7) or datetimeoffset(7) columns (not in the key)</label>
+      <label><input type="checkbox" value="lob"> Has large values (LOB) over 1 MB</label>
+      <label><input type="checkbox" value="rls"> Uses row-level security, column permissions or dynamic data masking</label>
+      <label><input type="checkbox" value="names"> Has column names with spaces or special characters</label>
+    </div>
+    <div id="tbl-out" class="result good" aria-live="polite"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Database level</h3>
+      <ul class="small">
+        <li>Only a writable primary database can be mirrored.</li>
+        <li>Not supported if CDC, Azure Synapse Link for SQL, or delayed transaction durability is enabled.</li>
+        <li>Each database can be mirrored only once (not into a second Fabric workspace).</li>
+        <li>Maximum 1,000 mirrored tables per database.</li>
+        <li><code>.dacpac</code> deployments need the publish property <code>/p:DoNotAlterReplicatedObjects=False</code> to change mirrored tables.</li>
+        <li>No cross-tenant mirroring.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Schema changes and operations</h3>
+      <ul class="small">
+        <li>Switch partition and alter primary key aren't allowed on mirrored source tables.</li>
+        <li>DDL changes, such as add, drop, alter or rename column, or truncate or rename table, trigger a full reseed of that table.</li>
+        <li>You can't alter a column to <code>json</code> or <code>vector</code> while the table is mirrored.</li>
+        <li>Stopping mirroring disables it completely. Starting again reseeds every table.</li>
+        <li>You can't change the source database of a mirror. Create a new one.</li>
+        <li>Ownership of a mirrored database can't be transferred. If the owner leaves, recreate it.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Data and types</h3>
+      <ul class="small">
+        <li>Delta supports six fractional-second digits: <code>datetime2(7)</code> loses its seventh digit, and <code>datetimeoffset(7)</code> also loses the time zone.</li>
+        <li>LOB columns over 1 MB are truncated to 1 MB in OneLake.</li>
+        <li>On the SQL analytics endpoint, <code>varchar(max)</code> for mirrored Azure SQL Database is limited to 1 MB. Tables created before November 18, 2025 support only <code>varchar(8000)</code> until recreated.</li>
+        <li>Tables without a primary key can be mirrored since April 2025. Older mirrors may need replication restarted to pick them up.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Security and endpoint</h3>
+      <ul class="small">
+        <li>Row-level security, object-level permissions, dynamic data masking and Purview sensitivity labels aren't propagated to OneLake.</li>
+        <li>The SQL analytics endpoint is read-only and shares the lakehouse SQL analytics endpoint's limitations.</li>
+        <li>Only one copy per source: share it rather than mirroring again.</li>
+        <li>Available in all Microsoft Fabric regions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 10 COST -->
+  <h2 id="cost"><span class="num">10</span>Costs</h2>
+  <p class="sub">The documented rules for database mirroring, in plain terms.</p>
+  <div class="twrap"><table>
+    <tr><th style="width:30%">Cost element</th><th>How it's charged</th></tr>
+    <tr><td class="k">Replication compute in Fabric</td><td><b>Free.</b> Background compute that replicates data into OneLake doesn't consume your capacity units.</td></tr>
+    <tr><td class="k">Mirrored storage in OneLake</td><td><b>Free up to a limit:</b> 1 TB of mirroring storage for each capacity unit (CU) you purchase. For example, F64 includes 64 TB used only for mirroring. You pay normal OneLake storage rates above the limit, or while the capacity is paused.</td></tr>
+    <tr><td class="k">Querying the data</td><td>Charged at regular rates against your Fabric capacity, whether you use SQL, Power BI or Spark. Direct requests to OneLake for mirrored data count as normal OneLake compute.</td></tr>
+    <tr><td class="k">Ingress</td><td>Fabric doesn't charge ingress into OneLake for mirroring.</td></tr>
+    <tr><td class="k">Egress</td><td>If the Azure SQL Database is in a different region from your Fabric capacity, data egress is charged. In the same region, there's no egress.</td></tr>
+    <tr><td class="k">Source database</td><td>Billed by Azure as usual. Mirroring adds CPU and IOPS load during the initial snapshot, plus extra log generation from updates and deletes. Microsoft suggests considering a dedicated, smaller database if that suits your needs.</td></tr>
+    <tr><td class="k">Capacity requirement</td><td>A running Fabric capacity is required. Scaling down the capacity lowers the free storage limit, which can create storage charges.</td></tr>
+    <tr><td class="k">Delta change data feed <span class="tag-paid">Optional, paid</span></td><td>An extended capability (generally available) that tracks row-level changes. It's billed by actual replication work on the Data movement, incremental replication meter (3 CU-hours rate), with no charge for idle time. It also adds <code>_change_data</code> storage. Core mirroring stays free without it.</td></tr>
+  </table></div>
+  <div class="tool" id="cost-tool">
+    <h3>Free mirroring storage calculator</h3>
+    <div class="q"><b>Your Fabric capacity SKU</b>
+      <select id="sku-sel" aria-label="Fabric capacity SKU">
+        <option value="2">F2</option><option value="4">F4</option><option value="8">F8</option><option value="16">F16</option>
+        <option value="32">F32</option><option value="64" selected>F64</option><option value="128">F128</option><option value="256">F256</option>
+        <option value="512">F512</option><option value="1024">F1024</option><option value="2048">F2048</option>
+      </select>
+    </div>
+    <div class="q"><b>Expected mirrored data on this capacity (TB, all mirrored databases)</b>
+      <input type="number" id="tb-in" min="0" step="0.1" value="1" style="font:14px 'Segoe UI',Arial,sans-serif;padding:6px 8px;border:1px solid #b8c7d8;border-radius:6px;width:140px" aria-label="Expected mirrored data in terabytes">
+    </div>
+    <div class="grid2" style="align-items:center">
+      <div><div class="small muted">Free mirroring storage</div><div class="big" id="free-tb">64 TB</div></div>
+      <div id="cost-out" class="result good" aria-live="polite" style="margin-top:0"></div>
+    </div>
+    <p class="small muted" style="margin:10px 0 0">This only applies the documented 1 TB per CU rule. It doesn't estimate query compute, egress, or Azure SQL Database charges. For prices, see <a href="https://azure.microsoft.com/en-us/pricing/details/microsoft-fabric/">Microsoft Fabric pricing</a>.</p>
+  </div>
+
+  <!-- 11 SECURITY -->
+  <h2 id="security"><span class="num">11</span>Security considerations</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Where the data goes</h3>
+      <ul class="small">
+        <li>According to the FAQ, data doesn't leave your Fabric tenant and isn't staged outside your environment. The landing zone is in your OneLake.</li>
+        <li>Deleting the mirror doesn't affect the source database.</li>
+        <li>Removing a table from mirroring deletes its data from OneLake.</li>
+        <li>Mirroring into a workspace with restricted inbound OneLake access works when the server is added as a Resource Instance Rule.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What you must set up again in Fabric</h3>
+      <ul class="small">
+        <li>Source row-level security, column permissions and dynamic data masking don't carry over.</li>
+        <li>Recreate them with <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/row-level-security">row-level security</a>, <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/column-level-security">column-level security</a> and <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/dynamic-data-masking">dynamic data masking</a> in Fabric data warehousing, or with OneLake security <span class="tag-pv">Preview</span>.</li>
+        <li>"Read all OneLake data" gives direct access to the mirrored files, for example with Spark. Grant it only to people who should see all of the data.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Least privilege</h3>
+      <ul class="small">
+        <li>Use a dedicated principal with only the four required permissions.</li>
+        <li>Don't remove the server identity's Read and write permission on the mirrored item, or replication stops.</li>
+        <li>Share the mirrored database item instead of granting workspace roles, where possible.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Network</h3>
+      <ul class="small">
+        <li>Microsoft notes that "Allow Azure services" is often more permissive than customers want. For sensitive data, consider private connectivity (a gateway plus a private endpoint) instead.</li>
+        <li>With a network security perimeter <span class="tag-pv">Preview</span>, start in transition mode, add the inbound and outbound rules, and switch to enforced mode only after replication is current and logs are clean.</li>
+        <li>Use the item-level OneLake FQDN for the outbound rule, never a wildcard.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 12 TROUBLE -->
+  <h2 id="trouble"><span class="num">12</span>Troubleshooting</h2>
+  <div class="twrap"><table>
+    <tr><th style="width:30%">Symptom</th><th>What to check or do</th></tr>
+    <tr><td class="k">Can't connect to the source</td><td>Check server and database names and credentials. Check whether the server is behind a firewall or private network, and use a gateway if it is. See <a href="#network">Choose networking</a>.</td></tr>
+    <tr><td class="k">"Unable to grant required permission to the source server. User does not have permission to reshare"</td><td>You need the Admin or Member role in the workspace. Contributors can't complete setup.</td></tr>
+    <tr><td class="k">"Replicator - Tables Cannot Reach Replicating Status"</td><td>Ask a Fabric admin to enable the tenant setting <i>Users can access data stored in OneLake with apps external to Fabric</i>.</td></tr>
+    <tr><td class="k">Mirroring says Running but no new data arrives</td><td>Run the <a href="#monitor">source database checks</a>. In <b>Manage permissions</b> on the mirrored item, confirm the server's managed identity has Read and write, and that its AppId matches the server identity. Confirm the right identity is primary with <code>sys.dm_server_managed_identities</code>.</td></tr>
+    <tr><td class="k">Data is in OneLake but not in the SQL analytics endpoint</td><td>Likely a metadata sync delay. Select <b>Refresh</b> on the SQL analytics endpoint page, wait, and query again.</td></tr>
+    <tr><td class="k">Status shows Paused</td><td>The Fabric capacity was paused and resumed. Select <b>Resume replication</b>. After a long pause, mirroring may reseed from the beginning to release source log space.</td></tr>
+    <tr><td class="k">A table or columns are missing</td><td>Select <b>Configure replication</b> and look for alert icons next to tables. Check the <a href="#limits">table checker</a>. Views aren't replicated. With more than 1,000 tables, the rest aren't mirrored.</td></tr>
+    <tr><td class="k">Text values look truncated</td><td>LOBs over 1 MB are truncated, and <code>varchar(max)</code> on the endpoint is limited to 1 MB for mirrored Azure SQL Database.</td></tr>
+    <tr><td class="k">"The replication is being throttled and expected to continue at ..."</td><td>The mirrored database hit 1 TB of change data in a day. Wait for throttling to end.</td></tr>
+    <tr><td class="k">Mirroring was disabled after errors</td><td>Mirroring disables itself on persistent errors to protect the source. Review <code>sys.dm_change_feed_errors</code>, fix the cause, then re-enable.</td></tr>
+    <tr><td class="k">A reseed started automatically</td><td>Expected in some cases: a table-level reseed after DDL changes, or a database-level reseed when the transaction log nears its limit because changes can't be published.</td></tr>
+    <tr><td class="k">Error 22651 or 22652 <span class="tag-pv">Preview</span></td><td>A network security perimeter blocks the outbound connection. For 22651, add an outbound rule for the FQDN shown in the error. For 22652, associate a perimeter or change public network access away from "Secured by Perimeter".</td></tr>
+    <tr><td class="k">"Login failed because the network security perimeter denied inbound access."</td><td>Add the inbound rule for the <code>DataFactory</code>, <code>PowerBI</code> and <code>PowerQueryOnline</code> service tags.</td></tr>
+    <tr><td class="k">"VIEW SERVER SECURITY STATE permission was denied" with an Entra login</td><td>Stale permissions. Drop the user, run <code>DBCC FREESYSTEMCACHE('TokenAndPermUserStore')</code> and <code>DBCC FLUSHAUTHCACHE</code>, then recreate the user from the login.</td></tr>
+    <tr><td class="k">Workspace deleted, or you can't stop mirroring from Fabric</td><td>Run <code>EXEC sp_change_feed_disable_db;</code> on the source database.</td></tr>
+    <tr><td class="k">Geo-failover happened and new data stopped</td><td>Replication is disabled automatically on failover. Select <b>Stop replication</b>, then <b>Start replication</b> (a full resync). Do the same after failing back. Connect through the failover group's read-write listener and give both servers' identities Read and write.</td></tr>
+  </table></div>
+
+  <!-- 13 FAQ -->
+  <h2 id="faq"><span class="num">13</span>FAQ</h2>
+  <div class="faqbar">
+    <input type="search" id="faq-q" placeholder="Filter questions, for example cost, failover, views" aria-label="Filter FAQ">
+    <button class="btn" type="button" id="faq-open">Expand all</button>
+    <button class="btn" type="button" id="faq-close">Collapse all</button>
+  </div>
+  <div id="faq-list">
+    <details><summary>Is mirroring Azure SQL Database generally available?</summary><div class="a">It's listed on Microsoft Learn without a preview label, unlike sources such as Azure Database for MySQL that are marked preview. Some related features are in preview: user-assigned managed identity, network security perimeter support, and Microsoft Entra server logins for Azure SQL Database.</div></details>
+    <details><summary>How fast do inserts, updates and deletes show up?</summary><div class="a">Microsoft describes it as near real time. Latency depends on regions, change volume and frequency, and network bandwidth. Plan for a short delay, and measure it with workspace monitoring (<code>ReplicatorBatchLatency</code>) if it matters.</div></details>
+    <details><summary>How long does the initial replication take?</summary><div class="a">It depends on how much data you're mirroring. Watch the <b>Last completed</b> column in <b>Monitor replication</b>.</div></details>
+    <details><summary>Can I mirror views?</summary><div class="a">No. Only regular tables are replicated from Azure SQL Database. Mirroring views is an extended capability currently in preview for Snowflake only. You can recreate view logic as views on the SQL analytics endpoint.</div></details>
+    <details><summary>Can I write to the mirrored tables?</summary><div class="a">No. The mirrored copy and its SQL analytics endpoint are read-only. You can create views, functions and stored procedures on the endpoint, but not change the data.</div></details>
+    <details><summary>Can I mirror the same database twice?</summary><div class="a">No. Each Azure SQL Database can be mirrored only once. Share the mirrored database with other people or workspaces instead.</div></details>
+    <details><summary>What happens if I stop mirroring, or restart it?</summary><div class="a">When you stop, replication stops but the copied tables stay in OneLake. When you start again, every table is reseeded from scratch.</div></details>
+    <details><summary>What if I pause my Fabric capacity?</summary><div class="a">No data is replicated while the capacity is paused, and you pay normal OneLake storage rates for mirrored data during the pause. After you resume, select <b>Resume replication</b>. After a long pause, mirroring may reseed the whole database.</div></details>
+    <details><summary>What does mirroring cost?</summary><div class="a">Replication compute is free, and mirrored storage is free up to 1 TB per capacity unit. Querying the data uses your capacity at regular rates. Cross-region egress is charged. See <a href="#cost">Costs</a>.</div></details>
+    <details><summary>Which licenses do I need?</summary><div class="a">A Power BI Premium capacity, a Fabric capacity, or a trial capacity.</div></details>
+    <details><summary>Does mirroring slow down my production database?</summary><div class="a">It adds load, mostly during the initial snapshot (CPU and IOPS), and updates and deletes can increase log generation. Long-running transactions can hold log truncation. Monitor the source and its transaction log, and start on a test copy.</div></details>
+    <details><summary>Can I use Power BI Direct Lake on mirrored data?</summary><div class="a">Yes. Mirrored tables are V-Ordered Delta tables. Create a semantic model on the SQL analytics endpoint, because a default semantic model is no longer created automatically.</div></details>
+    <details><summary>What happens during a geo-failover?</summary><div class="a">Replication is disabled automatically, though the portal may look unchanged. Stop and start replication to resync. Connecting through the failover group's read-write listener means you don't have to recreate the mirror.</div></details>
+    <details><summary>Does deleting the mirror affect my Azure SQL Database?</summary><div class="a">No. Deleting the mirror removes the replicated data in Fabric, not your source data.</div></details>
+    <details><summary>My database is in another Microsoft Entra tenant. Can I still mirror it?</summary><div class="a">No. Mirroring across Microsoft Entra tenants, where the database and the Fabric workspace are in different tenants, isn't supported.</div></details>
+  </div>
+  <p class="small muted" id="faq-none" hidden>No questions match that filter.</p>
+
+  <!-- SOURCES -->
+  <div class="src" id="sources">
+    <b>Sources, checked November 6, 2026 (Microsoft Learn unless noted)</b>
+    <ul>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/overview">Mirroring in Microsoft Fabric: overview</a> (how mirroring works, latency factors, cost of mirroring, retention)</li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database">Mirrored databases from Azure SQL Database</a> (endpoint capabilities, behind a firewall, tier support, pricing)</li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-tutorial">Tutorial: Configure mirrored databases from Azure SQL Database</a> (prerequisites, managed identity, permissions, connection steps)</li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-limitations">Limitations for mirrored databases from Azure SQL Database</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-mirroring-faq">FAQ for mirroring Azure SQL Database</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-troubleshoot">Troubleshoot mirrored databases from Azure SQL Database</a> and <a href="https://learn.microsoft.com/en-us/fabric/mirroring/troubleshooting">Troubleshoot Fabric mirrored databases</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/monitor">Monitor mirrored database replication</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-how-to-data-security">Secure data in mirrored databases from Azure SQL Database</a> (network security perimeter, preview)</li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/azure-sql-database-automatic-reseed">Automatic reseed for mirrored databases from Azure SQL Database</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/share-and-manage-permissions">Share your mirrored database and manage permissions</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/mirroring/extended-capabilities">Extended capabilities in mirroring</a> and <a href="https://learn.microsoft.com/en-us/fabric/mirroring/extended-capabilities-billing">Billing for extended capabilities</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/semantic-models">Power BI semantic models in Fabric</a> (end of default semantic models)</li>
+      <li><a href="https://learn.microsoft.com/en-us/data-integration/vnet/overview">What is a virtual network data gateway</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/onelake/onelake-manage-inbound-access-trusted-resources">Manage inbound access to OneLake with Resource Instance Rules</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/network-access-controls-overview">Azure SQL Database network access controls</a> ("Allow Azure services")</li>
+      <li>Microsoft Azure: <a href="https://azure.microsoft.com/en-us/pricing/details/microsoft-fabric/">Microsoft Fabric pricing</a></li>
+      <li>Linked for setup steps: <a href="https://learn.microsoft.com/en-us/data-integration/vnet/create-data-gateways">Create virtual network data gateways</a>, <a href="https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-install">Install an on-premises data gateway</a>, and Fabric data warehousing <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/row-level-security">row-level security</a>, <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/column-level-security">column-level security</a> and <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/dynamic-data-masking">dynamic data masking</a></li>
+    </ul>
+    Mirroring changes often. If a menu name, limit or status differs from what you see, trust the current Microsoft Learn pages.
+  </div>
+
+<script>
+(function () {
+  // Tabs
+  document.querySelectorAll('[data-tabs]').forEach(function (box) {
+    var tabs = Array.prototype.slice.call(box.querySelectorAll('[role="tab"]'));
+    function select(t, focus) {
+      tabs.forEach(function (x) {
+        var on = x === t;
+        x.setAttribute('aria-selected', on ? 'true' : 'false');
+        x.tabIndex = on ? 0 : -1;
+        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+      });
+      if (focus) t.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { select(tabs[(i + 1) % tabs.length], true); e.preventDefault(); }
+        if (e.key === 'ArrowLeft') { select(tabs[(i - 1 + tabs.length) % tabs.length], true); e.preventDefault(); }
+      });
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll('.copy').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var text = b.parentNode.querySelector('pre').innerText;
+      var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { b.textContent = 'Select and copy'; });
+      } else { b.textContent = 'Select and copy'; }
+    });
+  });
+
+  // Checklist with saved progress
+  var KEY = 'mirror-azsql-checklist-v1';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#checklist input[type="checkbox"]'));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { saved = {}; }
+  function updateProgress() {
+    var n = 0, state = {};
+    boxes.forEach(function (c) { if (c.checked) n++; state[c.id] = c.checked; c.closest('li').classList.toggle('done', c.checked); });
+    var pct = Math.round(n / boxes.length * 100);
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.querySelector('.progress').setAttribute('aria-valuenow', pct);
+    document.getElementById('prog-text').textContent = n + ' of ' + boxes.length + ' confirmed' + (n === boxes.length ? ': ready to set up mirroring' : '');
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  boxes.forEach(function (c) { c.checked = !!saved[c.id]; c.addEventListener('change', updateProgress); });
+  document.getElementById('prog-reset').addEventListener('click', function () { boxes.forEach(function (c) { c.checked = false; }); updateProgress(); });
+  updateProgress();
+
+  function setResult(el, cls, html) { el.className = 'result ' + cls; el.innerHTML = html; }
+
+  // Tier checker
+  var tierSel = document.getElementById('tier-sel');
+  function tier() {
+    var v = tierSel.value, out = document.getElementById('tier-out');
+    var role = document.querySelector('input[name="role"]:checked').value;
+    if (!v) { setResult(out, 'warn', 'Choose a tier to see the result.'); return; }
+    if (role === 'secondary') { setResult(out, 'stop', '<b>Not supported.</b> Mirroring works only on a writable primary database. Mirror the primary instead. For geo-failover setups, connect through the failover group\'s read-write listener.'); return; }
+    var ok = { 'vc-gp': 1, 'vc-bc': 1, 'vc-hs': 1, 'dtu-s-high': 1, 'dtu-prem': 1 };
+    if (ok[v]) { setResult(out, 'good', '<b>Supported tier.</b> All vCore service tiers are supported, and DTU databases outside the excluded tiers are supported. Single databases and elastic pool databases both work.'); }
+    else { setResult(out, 'stop', '<b>Not supported.</b> In the DTU purchasing model, databases in the Free, Basic, or Standard tiers with fewer than 100 DTUs can\'t be mirrored. Consider scaling to a supported tier or using a vCore tier.'); }
+  }
+  tierSel.addEventListener('change', tier);
+  document.querySelectorAll('input[name="role"]').forEach(function (r) { r.addEventListener('change', tier); });
+
+  // Networking helper
+  function radio(name) { var r = document.querySelector('input[name="' + name + '"]:checked'); return r ? r.value : ''; }
+  function net() {
+    var n1 = radio('n1'), n2 = radio('n2'), n3 = radio('n3'), n4 = radio('n4');
+    var out = document.getElementById('net-out');
+    document.getElementById('n2wrap').hidden = n1 !== 'no';
+    if (!n1) { setResult(out, 'warn', 'Answer question 1 to get a recommendation.'); return; }
+    var items = [], cls = 'good';
+    if (n1 === 'yes') {
+      items.push('<b>No gateway needed.</b> Choose <b>None</b> as the data gateway when you create the connection.');
+      items.push('Keep in mind that "Allow Azure services" accepts traffic from any Azure resource, not just yours. For sensitive data, consider a private path with a gateway instead.');
+    } else if (n2 === 'vnet') {
+      items.push('<b>Use a virtual network data gateway</b> in a virtual network that can reach the server through its private endpoint or an allowed firewall rule. It\'s fully managed. Microsoft recommends F8 or above for F SKUs.');
+    } else if (n2 === 'onprem') {
+      items.push('<b>Use an on-premises data gateway</b> on a machine whose network can reach the server through a private endpoint or an allowed firewall rule. Size the machine well, since gateway resources affect latency.');
+    } else {
+      items.push('Answer question 2 to choose a gateway type.'); cls = 'warn';
+    }
+    if (n3 === 'yes') {
+      items.push('<b>Network security perimeter (preview):</b> add an inbound rule for the <code>DataFactory</code>, <code>PowerBI</code> and <code>PowerQueryOnline</code> service tags, and an outbound FQDN rule for OneLake (from <code>EXEC sp_help_change_feed;</code> or the error 22651 message). Validate in transition mode first.');
+      if (cls === 'good') cls = 'warn';
+    }
+    if (n4 === 'yes') {
+      items.push('<b>Restricted OneLake inbound access:</b> a workspace admin must add the Azure SQL server\'s resource ID to the workspace\'s Resource Instance Rules.');
+    }
+    items.push('Either way, the server\'s managed identity must be enabled and primary, because it is what writes to OneLake.');
+    setResult(out, cls, '<ul>' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>');
+  }
+  ['n1', 'n2', 'n3', 'n4'].forEach(function (n) { document.querySelectorAll('input[name="' + n + '"]').forEach(function (r) { r.addEventListener('change', net); }); });
+  net();
+
+  // Table checker
+  var rules = {
+    view: ['stop', 'Views aren\'t replicated. Only regular tables are. Recreate the view on the SQL analytics endpoint.'],
+    history: ['stop', 'Temporal history and ledger history tables can\'t be mirrored.'],
+    ae: ['stop', 'Tables that use Always Encrypted can\'t be mirrored.'],
+    inmem: ['stop', 'In-memory tables can\'t be mirrored.'],
+    graph: ['stop', 'Graph tables can\'t be mirrored.'],
+    ext: ['stop', 'External tables can\'t be mirrored.'],
+    cci: ['stop', 'Clustered columnstore indexes aren\'t currently supported.'],
+    json: ['stop', 'Tables with json or vector columns can\'t currently be mirrored.'],
+    pktype: ['stop', 'A primary key or clustered index on an unsupported type blocks the table. A datetime2(7), datetimeoffset(7) or time(7) key is not supported.'],
+    nopk: ['good', 'Tables without a primary key can be mirrored since April 2025. For older mirrors with "mirror future tables" on, stop and start replication (recommended) so they are detected.'],
+    computed: ['warn', 'Computed columns are skipped. The rest of the table mirrors. Rebuild the logic in a view in Fabric.'],
+    badcol: ['warn', 'Columns of these types are skipped. The rest of the table mirrors.'],
+    dt7: ['warn', 'Precision loss: the seventh fractional-second digit is trimmed, and datetimeoffset also loses the time zone.'],
+    lob: ['warn', 'Values over 1 MB are truncated to 1 MB in OneLake.'],
+    rls: ['warn', 'The table mirrors, but these rules aren\'t carried over. Reconfigure security in Fabric before sharing.'],
+    names: ['good', 'Supported through Delta column mapping. Tables mirrored before this support may need to be removed and readded, or replication restarted.']
+  };
+  var tchecks = Array.prototype.slice.call(document.querySelectorAll('#tbl-tool input[type="checkbox"]'));
+  function tbl() {
+    var out = document.getElementById('tbl-out'), worst = 'good', notes = [];
+    var rank = { good: 0, warn: 1, stop: 2 };
+    tchecks.forEach(function (c) {
+      if (!c.checked) return;
+      var r = rules[c.value];
+      if (rank[r[0]] > rank[worst]) worst = r[0];
+      notes.push(r[1]);
+    });
+    var head = { good: '<b>This table should mirror.</b>', warn: '<b>This table mirrors, with caveats.</b>', stop: '<b>This table won\'t be mirrored as is.</b>' }[worst];
+    if (!notes.length) { setResult(out, 'good', head + ' Nothing selected blocks it. Also confirm it\'s within the 1,000-table limit.'); return; }
+    setResult(out, worst, head + '<ul>' + notes.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>');
+  }
+  tchecks.forEach(function (c) { c.addEventListener('change', tbl); });
+  tbl();
+
+  // Cost calculator
+  var sku = document.getElementById('sku-sel'), tb = document.getElementById('tb-in');
+  function cost() {
+    var free = parseInt(sku.value, 10), need = parseFloat(tb.value);
+    document.getElementById('free-tb').textContent = free.toLocaleString('en-US') + ' TB';
+    var out = document.getElementById('cost-out');
+    if (isNaN(need) || need < 0) { setResult(out, 'warn', 'Enter the expected size in TB.'); return; }
+    if (need <= free) { setResult(out, 'good', '<b>Within the free limit.</b> About ' + (free - need).toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' TB of free mirroring storage would remain, while the capacity is running.'); }
+    else { setResult(out, 'warn', '<b>Over the free limit by about ' + (need - free).toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' TB.</b> That excess is billed at OneLake storage rates.'); }
+  }
+  sku.addEventListener('change', cost); tb.addEventListener('input', cost); cost();
+
+  // FAQ
+  var faqs = Array.prototype.slice.call(document.querySelectorAll('#faq-list details'));
+  document.getElementById('faq-open').addEventListener('click', function () { faqs.forEach(function (d) { if (!d.hidden) d.open = true; }); });
+  document.getElementById('faq-close').addEventListener('click', function () { faqs.forEach(function (d) { d.open = false; }); });
+  document.getElementById('faq-q').addEventListener('input', function (e) {
+    var q = e.target.value.trim().toLowerCase(), shown = 0;
+    faqs.forEach(function (d) { var hit = !q || d.textContent.toLowerCase().indexOf(q) > -1; d.hidden = !hit; if (hit) shown++; });
+    document.getElementById('faq-none').hidden = shown > 0;
+  });
+})();
+</script>
+</div>
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content checked against Microsoft Learn documentation on November 6, 2026.<br>
+  Product features change often, especially in preview. For the latest information, always check the official Microsoft Learn documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+</body>
+</html>

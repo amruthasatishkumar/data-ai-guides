@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Capturing and analyzing Fabric data agent conversations</title>
+<meta name="description" content="An independent explainer on how to capture the questions people ask a Microsoft Fabric data agent, and its answers, so you can analyze them: Copilot Studio transcripts, Microsoft Purview, MCP clients, and Microsoft Foundry tracing." />
+<script>
+  (() => {
+    const theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #b45309;
+  --cp-link: #0067b8;
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #a8a8a8;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 40px; }
+
+header.hero {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-bg-elevated);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cp-accent);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; font-weight: 700; }
+.lede { font-size: 18px; color: var(--cp-text-muted); margin: 0; max-width: 780px; }
+.meta { font-size: 13px; color: var(--cp-text-soft); margin-top: 14px; }
+
+h2 {
+  font-size: 24px;
+  margin: 48px 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--cp-accent-soft);
+}
+h3 { font-size: 18px; margin: 28px 0 10px; }
+p { margin: 0 0 14px; }
+
+a { color: var(--cp-link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.card {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+  margin-bottom: 20px;
+}
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+@media (max-width: 760px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  h1 { font-size: 27px; }
+  .wrap { padding: 24px 16px 40px; }
+  header.hero { padding: 28px; }
+}
+
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface-soft);
+  color: var(--cp-text-muted);
+  margin: 0 6px 6px 0;
+}
+.pill.rec { background: var(--cp-accent-soft); border-color: var(--cp-accent); color: var(--cp-accent); }
+.pill.warn { background: rgba(245,158,11,0.12); border-color: var(--cp-warning); color: var(--cp-warning); }
+.pill.ok { background: rgba(22,163,74,0.10); border-color: var(--cp-success); color: var(--cp-success); }
+
+.diagram { width: 100%; overflow-x: auto; padding: 8px 0; }
+.flow { display: flex; align-items: stretch; gap: 0; min-width: 640px; }
+.node {
+  flex: 1;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+}
+.node .icon { font-size: 22px; margin-bottom: 6px; }
+.node .t { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+.node .s { font-size: 12px; color: var(--cp-text-muted); }
+.node.accent { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.arrow {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--cp-accent); font-size: 22px; font-weight: 700;
+  padding: 0 6px; flex: 0 0 34px;
+}
+
+.stack-flow { display: grid; gap: 14px; }
+.step { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+.step .num {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--cp-accent); color: var(--cp-accent-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; flex-shrink: 0;
+}
+.step .body { padding-top: 6px; }
+.step .body strong { display: block; margin-bottom: 2px; }
+
+.table-wrap { width: 100%; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 4px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--cp-border); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cp-text-soft); }
+tr:last-child td { border-bottom: none; }
+table.compare td:first-child { font-weight: 600; white-space: nowrap; }
+table.compare { min-width: 860px; }
+table.compare code { white-space: nowrap; word-break: normal; }
+.card > h3:first-child { margin-top: 0; }
+
+code {
+  font-family: Consolas, "Courier New", Courier, monospace;
+  background: var(--cp-surface-soft);
+  border: 1px solid var(--cp-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: var(--cp-accent);
+  word-break: break-word;
+}
+
+.callout {
+  border-left: 4px solid var(--cp-accent);
+  background: var(--cp-accent-soft);
+  border-radius: 0 12px 12px 0;
+  padding: 16px 20px;
+  margin: 18px 0;
+}
+.callout.warn { border-left-color: var(--cp-warning); background: rgba(245,158,11,0.10); }
+.callout.ok { border-left-color: var(--cp-success); background: rgba(22,163,74,0.08); }
+.callout.new { border-left-color: var(--cp-link); background: rgba(0,103,184,0.08); }
+
+ul.clean { margin: 8px 0 14px; padding-left: 20px; }
+ul.clean li { margin-bottom: 6px; }
+
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.toc a {
+  font-size: 13px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface); color: var(--cp-text);
+}
+.toc a:hover { border-color: var(--cp-accent); color: var(--cp-accent); text-decoration: none; }
+
+/* Chooser */
+.chooser { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.chooser button {
+  font: 600 14px "Segoe UI", Arial, sans-serif;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface-soft);
+  color: var(--cp-text);
+  cursor: pointer;
+}
+.chooser button:hover { border-color: var(--cp-accent); }
+.chooser button[aria-pressed="true"] { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); }
+.answer { min-height: 64px; }
+.answer .lead { font-weight: 700; margin-bottom: 4px; }
+.card.approach.hl { border-color: var(--cp-accent); box-shadow: 0 0 0 2px var(--cp-accent-soft), 0 1px 2px rgba(0,0,0,0.14); }
+
+/* Checklist */
+.checklist { list-style: none; padding: 0; margin: 0; }
+.checklist li { padding: 8px 0; border-bottom: 1px solid var(--cp-border); }
+.checklist li:last-child { border-bottom: none; }
+.checklist label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.checklist input { margin-top: 5px; accent-color: var(--cp-accent); }
+.progress { font-size: 13px; color: var(--cp-text-muted); margin-top: 10px; }
+
+.src-list { list-style: none; padding: 0; margin: 0; }
+.src-list li { padding: 10px 0; border-bottom: 1px solid var(--cp-border); }
+.src-list li:last-child { border-bottom: none; }
+.src-list .src-t { font-weight: 600; }
+.src-list .src-u { font-size: 13px; word-break: break-all; }
+.src-group { margin: 18px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cp-text-soft); }
+.src-group:first-child { margin-top: 0; }
+
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--cp-text-muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.dot.a { background: var(--cp-accent); }
+.dot.b { background: var(--cp-border-strong); }
+
+.site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+.site-foot a { color:#1d4a7a; }
+html[data-theme="dark"] .site-foot { color:#b0b0b0; border-top-color:#474747; }
+html[data-theme="dark"] .site-foot a { color:#4da6ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Microsoft Fabric &middot; Copilot Studio &middot; Purview &middot; Foundry</span>
+    <h1>Capturing and analyzing Fabric data agent conversations</h1>
+    <p class="lede">Fabric data agents don't expose a ready-made, queryable log of what people asked and what the agent answered. This explainer walks through four documented ways to capture those prompts and responses and turn them into something you can analyze, with the caveats that matter for each.</p>
+    <p class="meta">Independent explainer, not official Microsoft guidance. Content checked against Microsoft Learn on November 6, 2026. Several pieces are in preview, so validate behavior in your own tenant.</p>
+    <div class="toc">
+      <a href="#problem">The challenge</a>
+      <a href="#options">Four approaches</a>
+      <a href="#chooser">Which fits?</a>
+      <a href="#arch-a">A: Copilot Studio</a>
+      <a href="#arch-b">B: Purview</a>
+      <a href="#arch-c">C: MCP client</a>
+      <a href="#arch-d">D: Foundry</a>
+      <a href="#compare">Comparison</a>
+      <a href="#steps">Implementation</a>
+      <a href="#validate">Validation checklist</a>
+      <a href="#sources">Sources</a>
+    </div>
+  </header>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <h2>The challenge</h2>
+    <div class="card">
+      <p>A Fabric data agent lets people ask questions in plain language about data in OneLake. It can draw on lakehouses, warehouses, Power BI semantic models, KQL databases, mirrored databases, ontologies, and Microsoft Graph, and it generates read-only SQL, DAX, or KQL queries to answer. Microsoft documents the data agent as a generally available feature.</p>
+      <p>The gap is not the agent itself. It's <em>keeping and querying the conversations</em>:</p>
+      <ul class="clean">
+        <li>In the Fabric chat experience, <strong>Clear chat</strong> erases the chat history and starts a new session. The docs state that once deleted, the history can't be retrieved.</li>
+        <li>The data agent limitations state that <strong>conversation history "might not always persist"</strong>, and can be reset or lost after backend infrastructure changes, service updates, or model upgrades.</li>
+        <li>When this was checked, the Fabric data agent docs did not describe a built-in, queryable table or report of the prompts and responses of a published data agent. They do mention diagnostics, and Microsoft Purview audit and eDiscovery (in preview).</li>
+        <li>So "save the conversations and analyze them" needs a <strong>consumption surface that records the exchange</strong>, plus a path into an analytics store.</li>
+      </ul>
+      <div class="callout">
+        <strong>Key idea:</strong> you get a durable record by choosing <em>where the data agent is consumed</em>. Each surface records conversations differently: (A) <strong>Copilot Studio</strong> writes transcripts to Dataverse; (B) <strong>Microsoft 365 Copilot</strong> interactions are covered by Microsoft Purview audit, retention, and eDiscovery; (C) your own <strong>MCP client</strong> can log every request and answer itself; (D) a <strong>Microsoft Foundry</strong> agent can send traces to Application Insights.
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTIONS -->
+  <section id="options">
+    <h2>Four approaches</h2>
+    <div class="grid-2">
+      <div class="card approach" data-approach="a">
+        <span class="pill rec">Best for an analytics dataset</span>
+        <h3 style="margin-top:6px;">A &middot; Copilot Studio + Dataverse + Fabric</h3>
+        <p>Add the published Fabric data agent to a Copilot Studio agent and publish that agent to a channel such as Microsoft Teams. Copilot Studio saves conversation transcripts to the <code>ConversationTranscript</code> table in Dataverse. Link Dataverse to Fabric and analyze in a lakehouse and Power BI.</p>
+        <p style="margin-bottom:0;color:var(--cp-text-muted);font-size:14px;"><strong>Best when:</strong> you want an ongoing, reusable dataset for usage analytics, unanswered questions, and quality tracking.</p>
+      </div>
+      <div class="card approach" data-approach="b">
+        <span class="pill ok">Compliance and governance</span>
+        <h3 style="margin-top:6px;">B &middot; Microsoft 365 Copilot + Microsoft Purview</h3>
+        <p>Publish the data agent to the Agent Store so people use it in Microsoft 365 Copilot. Prompts and responses are stored in a hidden mailbox folder and can be covered by Purview retention, audit, eDiscovery, and Data Security Posture Management (DSPM) for AI.</p>
+        <p style="margin-bottom:0;color:var(--cp-text-muted);font-size:14px;"><strong>Best when:</strong> the mandate is retention, investigation, or oversight rather than a purpose-built analytics dataset.</p>
+      </div>
+      <div class="card approach" data-approach="c">
+        <span class="pill">Custom apps and pipelines</span>
+        <h3 style="margin-top:6px;">C &middot; Your own MCP client + your own log</h3>
+        <p>Call the published data agent through its <strong>Model Context Protocol (MCP) endpoint</strong> from your own app or orchestrator. Your code sends each question and receives each answer, so it can write both to your own store or OneLake.</p>
+        <p style="margin-bottom:0;color:var(--cp-text-muted);font-size:14px;"><strong>Best when:</strong> the agent is embedded in a custom experience and you want full control over what's captured.</p>
+      </div>
+      <div class="card approach" data-approach="d">
+        <span class="pill warn">Changed November 6, 2026</span>
+        <h3 style="margin-top:6px;">D &middot; Microsoft Foundry agent + tracing</h3>
+        <p>Call the data agent from a Foundry agent through the <strong>Fabric IQ</strong> tool (preview). The older Fabric data agent tool in Foundry Agent Service isn't supported starting November 6, 2026. Foundry tracing sends telemetry to Application Insights.</p>
+        <p style="margin-bottom:0;color:var(--cp-text-muted);font-size:14px;"><strong>Best when:</strong> you already build agents in Foundry and need end-to-end traces for debugging and monitoring.</p>
+      </div>
+    </div>
+    <div class="callout warn">
+      <strong>Where a data agent can be consumed (as documented when checked):</strong> the Fabric chat experience, Microsoft 365 Copilot (through the Agent Store), Copilot Studio (as a tool, or as a connected agent in preview), Microsoft Foundry (through the Fabric IQ tool, preview), and any MCP client through the published MCP endpoint. The approaches above simply pick a surface that also <em>keeps</em> the conversation.
+    </div>
+  </section>
+
+  <!-- CHOOSER -->
+  <section id="chooser">
+    <h2>Which approach fits your goal?</h2>
+    <div class="card">
+      <p style="margin-bottom:6px;">Pick your main goal to see a suggested starting point. The matching approach card above is highlighted.</p>
+      <div class="chooser" role="group" aria-label="Choose your main goal">
+        <button type="button" data-goal="analytics" aria-pressed="false">Analyze usage and question quality</button>
+        <button type="button" data-goal="compliance" aria-pressed="false">Retention, audit, or investigations</button>
+        <button type="button" data-goal="custom" aria-pressed="false">Embed in my own app</button>
+        <button type="button" data-goal="foundry" aria-pressed="false">I build agents in Foundry</button>
+      </div>
+      <div class="answer" id="answer" aria-live="polite">
+        <p style="color:var(--cp-text-muted);margin:0;">Select a goal above.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCH A -->
+  <section id="arch-a">
+    <h2>Approach A: Copilot Studio, Dataverse, and Fabric</h2>
+    <div class="card">
+      <div class="diagram">
+        <div class="flow">
+          <div class="node">
+            <div class="icon">&#128100;</div>
+            <div class="t">User</div>
+            <div class="s">Asks in Teams</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#129302;</div>
+            <div class="t">Copilot Studio agent</div>
+            <div class="s">Data agent as a tool or connected agent</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#9889;</div>
+            <div class="t">Fabric data agent</div>
+            <div class="s">NL to SQL / DAX / KQL</div>
+          </div>
+        </div>
+      </div>
+      <div class="diagram" style="margin-top:14px;">
+        <div class="flow">
+          <div class="node">
+            <div class="icon">&#128220;</div>
+            <div class="t">Dataverse</div>
+            <div class="s">ConversationTranscript</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#127754;</div>
+            <div class="t">OneLake</div>
+            <div class="s">Link to Fabric</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#128202;</div>
+            <div class="t">Lakehouse</div>
+            <div class="s">Parsed turns</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#128200;</div>
+            <div class="t">Power BI</div>
+            <div class="s">Analysis</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><span class="dot a"></span> Live conversation path</span>
+        <span><span class="dot b"></span> Capture and analytics path</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Why this works</h3>
+      <ul class="clean">
+        <li>Copilot Studio offers two ways to use a published Fabric data agent. The newer one adds it <strong>as a tool</strong> (the <em>Fabric IQ Data MCP</em> tool) to an agent on the GitHub Copilot harness, which you can publish to Teams or Microsoft 365 Copilot. The earlier one adds it as a <strong>connected agent</strong>, which is in preview. Either way, the Fabric data agent still runs in Fabric with the permissions on its data sources.</li>
+        <li>Copilot Studio <strong>automatically saves transcripts to Dataverse</strong> by default (an environment setting controls this). Each record's <code>Content</code> column holds the conversation as JSON activities: user and agent messages, timestamps, channel, and a hashed user or conversation ID.</li>
+        <li><strong>Link to Microsoft Fabric</strong> makes selected Dataverse tables available in OneLake through shortcuts, without building ETL. It creates a lakehouse, SQL analytics endpoint, and Power BI semantic model, and keeps them updated as Dataverse changes (the docs say updates can take up to 60 minutes).</li>
+        <li>Copilot Studio interactions are also in scope for Purview audit (Audit Standard), retention (a "Copilot Studio" location), and eDiscovery (item class <code>IPM.SkypeTeams.Message.Copilot.Studio.*</code>), so Approach B can sit alongside this one.</li>
+      </ul>
+      <div class="callout warn">
+        <strong>Preview, channel, and harness notes:</strong>
+        <ul class="clean" style="margin-bottom:0;">
+          <li>The <strong>connected agent</strong> option is in <strong>preview</strong>. Its docs say it is validated only for Microsoft Teams, other channels haven't been formally tested, and using it in Microsoft 365 Copilot isn't currently supported.</li>
+          <li>Transcripts <strong>aren't written</strong> for Microsoft Dataverse for Teams environments or for Microsoft Copilot agents.</li>
+          <li>The transcript articles note that the <strong>harness</strong> you build on affects features. They don't spell out transcript behavior per harness and channel, so confirm that your agent's conversations, including the data agent's answer text, actually appear in <code>ConversationTranscript</code> before you rely on it.</li>
+          <li>Some content can be redacted in transcripts. The transcript docs note that answers grounded in certain knowledge sources are marked <code>REDACTED</code>, with only the question and source content kept.</li>
+          <li>Responses returned by the Fabric data agent to Copilot Studio might leave Fabric's compliance boundary or geographic region and are handled under Copilot Studio's terms.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCH B -->
+  <section id="arch-b">
+    <h2>Approach B: Microsoft 365 Copilot and Microsoft Purview</h2>
+    <div class="card">
+      <div class="diagram">
+        <div class="flow">
+          <div class="node">
+            <div class="icon">&#128100;</div>
+            <div class="t">User</div>
+            <div class="s">Microsoft 365 Copilot</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#9889;</div>
+            <div class="t">Fabric data agent</div>
+            <div class="s">From the Agent Store</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#128231;</div>
+            <div class="t">Exchange mailbox</div>
+            <div class="s">Hidden folder</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#128737;&#65039;</div>
+            <div class="t">Microsoft Purview</div>
+            <div class="s">Audit / DSPM / eDiscovery</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#128202;</div>
+            <div class="t">Export, then analyze</div>
+            <div class="s">Case-based</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Why this works</h3>
+      <ul class="clean">
+        <li>When you publish a data agent you can choose <strong>Publish to Agent Store</strong>. People can then chat with it in Microsoft 365 Copilot, or mention it with <code>@</code> from the main Copilot chat.</li>
+        <li>Purview stores data from generative AI messages in a <strong>hidden folder in the user's mailbox</strong>. Retention policies can target locations such as Microsoft 365 Copilot, Copilot in Fabric, and Copilot Studio.</li>
+        <li><strong>Audit</strong> records for Copilot and AI interactions include properties such as <code>AgentId</code>, <code>AgentName</code>, the app host, and accessed resources. The <code>Messages</code> property holds message IDs and an <code>isPrompt</code> flag, <em>not</em> the prompt and response text. Audit records can also be pulled programmatically through the Office 365 Management Activity API.</li>
+        <li><strong>DSPM for AI</strong> Activity explorer shows AI interaction events, and prompts and responses are included for users with the right permissions.</li>
+        <li><strong>eDiscovery</strong> searches the mailbox item classes (for example <code>IPM.SkypeTeams.Message.Copilot.Fabric.*</code> for Copilot in Fabric) and can export results, which you can then land in OneLake for analysis.</li>
+      </ul>
+      <div class="callout warn">
+        <strong>Caveats to validate:</strong>
+        <ul class="clean" style="margin-bottom:0;">
+          <li>Purview capabilities <em>for Fabric data agents specifically</em> are described as <strong>preview</strong>, and the limitations say agent interactions <strong>"might be"</strong> logged and discoverable. Check that data agent turns actually appear before you rely on this path.</li>
+          <li>For <strong>Copilot in Fabric</strong>, DSPM for AI says prompts and responses are captured only if a collection policy like the one from the "Secure interactions for Microsoft Copilot experiences" recommendation is in place. Without it, audit events are captured but not the prompt and response content. The docs don't say explicitly whether in-Fabric data agent chats are classified as Copilot in Fabric.</li>
+          <li>This path is batch and case-oriented. It needs Purview and eDiscovery roles, and Purview licensing varies by capability, so check your entitlements.</li>
+          <li>Responses returned to Microsoft 365 Copilot might leave Fabric's compliance boundary or geographic region.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCH C -->
+  <section id="arch-c">
+    <h2>Approach C: Your own MCP client and log</h2>
+    <div class="card">
+      <div class="diagram">
+        <div class="flow">
+          <div class="node">
+            <div class="icon">&#128100;</div>
+            <div class="t">User</div>
+            <div class="s">Your app or UI</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#128268;</div>
+            <div class="t">Your orchestrator</div>
+            <div class="s">MCP client</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#9889;</div>
+            <div class="t">Fabric data agent</div>
+            <div class="s">MCP endpoint</div>
+          </div>
+        </div>
+      </div>
+      <div class="diagram" style="margin-top:14px;">
+        <div class="flow">
+          <div class="node accent">
+            <div class="icon">&#128221;</div>
+            <div class="t">Log the exchange</div>
+            <div class="s">Question + answer</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#127754;</div>
+            <div class="t">OneLake or your store</div>
+            <div class="s">Your table</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#128200;</div>
+            <div class="t">Power BI</div>
+            <div class="s">Analysis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Why this works</h3>
+      <ul class="clean">
+        <li>A published data agent becomes an MCP server that exposes a single tool, at <code>https://api.fabric.microsoft.com/v1/mcp/workspaces/{WorkspaceId}/dataagents/{DataAgentId}/agent</code>. Any MCP client that supports streamable HTTP can call it with a Fabric bearer token (user or service principal) for the <code>https://api.fabric.microsoft.com/.default</code> scope.</li>
+        <li>Because <em>your</em> code sends each question and receives each answer, you can <strong>write both to your own store or OneLake</strong> at the moment of the exchange, with no dependence on a downstream transcript store.</li>
+        <li>You decide what to capture: question, answer text, timing, user, and your own session ID. The documented example reads the text content blocks that the tool returns.</li>
+        <li>For long questions, the endpoint supports the MCP tasks extension, so a client can poll for the result instead of holding a connection open.</li>
+      </ul>
+      <div class="callout warn">
+        <strong>Timing and design notes:</strong> The earlier programmatic path used the OpenAI Assistants API. The Fabric docs now state that OpenAI retired the Assistants API and that applications should use the MCP endpoint. Unlike the Assistants API, the MCP endpoint <strong>doesn't provide built-in conversation management</strong>, so your client maintains conversation state, which is also where you log it. Responses returned to an external MCP client might leave Fabric's compliance boundary or region and are handled under that client's terms.
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCH D -->
+  <section id="arch-d">
+    <h2>Approach D: Microsoft Foundry agent and tracing</h2>
+    <div class="callout new">
+      <strong>What changed:</strong> Microsoft Learn states that the Microsoft Fabric data agent tool in Foundry Agent Service is scheduled for deprecation and won't be supported starting <strong>November 6, 2026</strong>. Foundry agents should use the <strong>Fabric IQ (OneLake Catalog)</strong> tool (preview) instead, which can call a published Fabric data agent through its MCP endpoint. For a walkthrough of the options, see the companion guide <a href="../fabric-foundry-data-agent-migration/">Fabric data agent tool in Microsoft Foundry is retiring: your options</a>.
+    </div>
+    <div class="card">
+      <div class="diagram">
+        <div class="flow">
+          <div class="node">
+            <div class="icon">&#128100;</div>
+            <div class="t">User</div>
+            <div class="s">Your app</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#129302;</div>
+            <div class="t">Foundry agent</div>
+            <div class="s">Fabric IQ tool</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node">
+            <div class="icon">&#9889;</div>
+            <div class="t">Fabric data agent</div>
+            <div class="s">Agent + tool spans</div>
+          </div>
+          <div class="arrow">&rarr;</div>
+          <div class="node accent">
+            <div class="icon">&#128225;</div>
+            <div class="t">Application Insights</div>
+            <div class="s">Traces</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>What gets recorded where</h3>
+      <ul class="clean">
+        <li><strong>Foundry tracing:</strong> after you connect an Application Insights resource to a Foundry project, server-side tracing is turned on automatically. Microsoft notes that tracing can capture sensitive information such as user inputs, model outputs, and tool arguments and results. The Foundry portal shows the last 90 days. Storage retention and cost follow your Application Insights and Log Analytics configuration.</li>
+        <li><strong>Fabric data agent spans (preview):</strong> the data agent adds an agent span and one tool span per data source it queries. This telemetry is <strong>operational metadata only</strong>: agent display names, data source names, reasoning step IDs, conversation IDs, status, and duration. The docs state that user prompts and data agent responses aren't included. A Fabric tenant setting controls this and is on by default.</li>
+        <li><strong>Purview:</strong> DSPM for AI can capture prompts and responses from applications built on Microsoft Foundry through its "Secure interactions from enterprise apps" collection policy. eDiscovery lists the item class <code>IPM.SkypeTeams.Message.ConnectedAIApp.AzureAI.&lt;AzureResourceName&gt;</code>.</li>
+      </ul>
+      <div class="callout warn">
+        <strong>Treat traces as debugging data, not a conversation archive.</strong> Content in traces depends on how your Foundry agent is built and instrumented, and the data agent's own spans carry no prompt or response text. The Application Insights resource might be outside your tenant's region or compliance boundary. Validate what actually lands in your traces after you switch to the Fabric IQ tool.
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section id="compare">
+    <h2>Side-by-side comparison</h2>
+    <div class="card">
+      <div class="table-wrap">
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>A &middot; Copilot Studio</th>
+            <th>B &middot; M365 Copilot + Purview</th>
+            <th>C &middot; MCP client</th>
+            <th>D &middot; Foundry + tracing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Primary goal</td><td>Ongoing usage analytics</td><td>Retention, audit, investigation</td><td>Custom app, full control</td><td>Debugging and monitoring</td></tr>
+          <tr><td>Surface</td><td>Copilot Studio agent (Teams)</td><td>Microsoft 365 Copilot</td><td>Your app or orchestrator</td><td>Foundry agent with Fabric IQ tool</td></tr>
+          <tr><td>Where it lands</td><td>Dataverse <code>ConversationTranscript</code></td><td>Hidden mailbox folder, audit log</td><td>Your own store or OneLake</td><td>Application Insights</td></tr>
+          <tr><td>Content</td><td>JSON activities: messages, outcome, CSAT, variables</td><td>Text via DSPM or eDiscovery; audit has IDs only</td><td>Whatever you log</td><td>Foundry spans can include inputs and outputs; data agent spans are metadata only</td></tr>
+          <tr><td>Default retention</td><td>Dataverse bulk delete after 30 days (adjustable)</td><td>Set by your retention policies</td><td>You decide</td><td>Per Application Insights settings; portal shows 90 days</td></tr>
+          <tr><td>Access</td><td>Bot Transcript Viewer role; Fabric workspace access</td><td>Purview and eDiscovery roles</td><td>Fabric token (user or service principal)</td><td>Read on Application Insights (plus Foundry User in portal)</td></tr>
+          <tr><td>Freshness</td><td>Fabric link sync, up to about 60 minutes</td><td>Batch, per search or export</td><td>Real time</td><td>Minutes</td></tr>
+          <tr><td>Maturity</td><td>Connected agent preview; tool option available</td><td>Purview for data agents in preview</td><td>MCP endpoint documented; Assistants API retired</td><td>Fabric IQ tool and data agent observability in preview</td></tr>
+          <tr><td>Best fit</td><td><span class="pill rec">Analytics</span></td><td><span class="pill ok">Governance</span></td><td><span class="pill">Custom apps</span></td><td><span class="pill warn">Observability</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="callout ok">
+      <strong>A common pattern:</strong> use <strong>Approach A</strong> when the goal is to save conversations and analyze them. Keep <strong>Approach B</strong> in place as the compliance and retention backstop, or use it when Microsoft 365 Copilot must be the surface. Use <strong>C</strong> for custom apps and <strong>D</strong> when the agent is built in Foundry.
+    </div>
+  </section>
+
+  <!-- IMPLEMENTATION -->
+  <section id="steps">
+    <h2>Implementation walkthrough (Approach A)</h2>
+    <div class="card">
+      <div class="stack-flow">
+        <div class="step">
+          <div class="num">1</div>
+          <div class="body">
+            <strong>Publish the Fabric data agent</strong>
+            Confirm it answers correctly in Fabric, then publish it with a rich, detailed description. Copilot Studio's orchestrator uses that description to decide when to call it.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div class="body">
+            <strong>Add it to a Copilot Studio agent</strong>
+            Use the same tenant and the same sign-in for Fabric and Copilot Studio. For the tool option, create an agent on the GitHub Copilot harness, open <em>Tools</em>, add <em>Fabric IQ Data MCP</em>, and select the data agent from the OneLake catalog. For the connected agent option (preview), go to <em>Agents</em> &rarr; <em>Add</em> &rarr; <em>Microsoft Fabric</em> and turn on generative orchestration.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body">
+            <strong>Publish to a channel</strong>
+            Publish and turn on the Teams channel, then test end to end that the Fabric data agent answers questions. If you share the agent with user authentication, each person needs read access to the data agent and its underlying data sources.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <div class="body">
+            <strong>Confirm transcripts are saved and accessible</strong>
+            In the Power Platform admin center, go to the environment &rarr; <em>Settings</em> &rarr; <em>Product</em> &rarr; <em>Features</em> and make sure <em>Allow conversation transcripts and their associated metadata to be saved in Dataverse</em> is on (it's on by default in new environments). An admin grants the <em>Bot Transcript Viewer</em> role to people who need to read transcripts. Optionally turn on enhanced transcripts (agent <em>Settings</em> &rarr; <em>Advanced</em>) for node-level detail. A recurring bulk delete job removes transcripts older than 30 days by default; replace it with a job on a longer schedule if you need more history.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">5</div>
+          <div class="body">
+            <strong>Link Dataverse to Microsoft Fabric</strong>
+            In Power Apps, go to <em>Link data</em> &rarr; <em>New link</em> &rarr; <em>Fabric link</em> (requires the System Administrator role in the environment). The wizard preselects tables with <em>Track changes</em> enabled, so confirm <code>ConversationTranscript</code> is selected. Linked tables consume Dataverse storage, and updates can take up to 60 minutes to appear in OneLake.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">6</div>
+          <div class="body">
+            <strong>Parse the transcript JSON into curated tables</strong>
+            The <code>Content</code> column is Bot Framework activity JSON. Use a Fabric notebook or dataflow to flatten it into tables such as conversation, turn (prompt and response), timestamp, hashed user, channel, outcome, and CSAT. Because the link reflects changes in Dataverse, plan for rows removed by the bulk delete job to disappear from the linked tables too, and persist curated history in your own lakehouse tables. As a low-code alternative, the Copilot Agent Kit's Conversation KPIs solution aggregates transcripts into Dataverse tables with sample Power BI reports.
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">7</div>
+          <div class="body">
+            <strong>Model and analyze in Power BI</strong>
+            Build a semantic model for volume, active users, top questions, unanswered or abandoned sessions, themes, and response quality.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>What's inside the transcript <code>Content</code> JSON</h3>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>type</code></td><td>Activity type, for example <code>message</code>, <code>event</code>, or <code>trace</code></td></tr>
+          <tr><td><code>text</code></td><td>The text of <code>message</code> activities (the actual question or answer)</td></tr>
+          <tr><td><code>from.role</code></td><td><code>1</code> = user, <code>0</code> = agent</td></tr>
+          <tr><td><code>from.id</code></td><td>Hashed ID of the invoker. Unique per user if the channel passes a user ID, otherwise unique per conversation</td></tr>
+          <tr><td><code>timestamp</code></td><td>When the activity was generated (epoch format)</td></tr>
+          <tr><td><code>channelId</code></td><td>Source channel, for example <code>msteams</code> or <code>directline</code></td></tr>
+          <tr><td><code>value</code> / <code>valueType</code></td><td>Activity-specific data, such as <code>SessionInfo</code> (outcome, turn count), <code>CSATSurveyResponse</code>, <code>IntentRecognition</code>, and <code>VariableAssignment</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p style="margin:8px 0 0;color:var(--cp-text-muted);font-size:14px;">A transcript is saved after 30 minutes of inactivity. Records larger than 1 MB are split across rows that share <code>Name</code> and <code>ConversationStartTime</code>; merge them by sorting on <code>BatchId</code> in the <code>Metadata</code> column. Separately, Copilot Studio keeps session data in its own storage for up to 28 days, and its CSV session download truncates each agent response to 512 characters, so use the Dataverse table for full text.</p>
+    </div>
+  </section>
+
+  <!-- VALIDATION -->
+  <section id="validate">
+    <h2>Validation checklist</h2>
+    <div class="card">
+      <p>Docs describe several of these behaviors as preview or "might". Before you build reporting on any approach, confirm in your own tenant:</p>
+      <ul class="checklist" id="checklist">
+        <li><label><input type="checkbox"><span>A test conversation through your chosen surface creates a record where you expect it (Dataverse, Purview, your log, or Application Insights).</span></label></li>
+        <li><label><input type="checkbox"><span>The record contains the <strong>data agent's answer text</strong>, not only the orchestrator's summary or a redacted placeholder.</span></label></li>
+        <li><label><input type="checkbox"><span>Transcripts appear for your harness and channel (for example Teams vs. Microsoft 365 Copilot).</span></label></li>
+        <li><label><input type="checkbox"><span>Retention matches your needs (Dataverse bulk delete schedule, Purview retention policy, Application Insights retention).</span></label></li>
+        <li><label><input type="checkbox"><span>Only the right people can read the captured data (Bot Transcript Viewer, Fabric workspace roles, Purview roles, Application Insights readers).</span></label></li>
+        <li><label><input type="checkbox"><span>Data residency is acceptable: several surfaces note that responses or telemetry might leave Fabric's compliance boundary or region.</span></label></li>
+        <li><label><input type="checkbox"><span>If you use Foundry, agents use the Fabric IQ tool rather than the retired Fabric data agent tool.</span></label></li>
+      </ul>
+      <div class="progress" id="progress">0 of 7 checked</div>
+    </div>
+  </section>
+
+  <!-- SOURCES -->
+  <section id="sources">
+    <h2>Sources</h2>
+    <div class="card">
+      <ul class="src-list">
+        <li class="src-group">Fabric data agent</li>
+        <li>
+          <div class="src-t">Fabric data agent concepts: GA status, Purview capabilities (preview), limitations including conversation history</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/concept-data-agent</a>
+        </li>
+        <li>
+          <div class="src-t">Create a Fabric data agent (Clear chat behavior)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/how-to-create-data-agent" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/how-to-create-data-agent</a>
+        </li>
+        <li>
+          <div class="src-t">Fabric data agent end-to-end tutorial (programmatic use, Assistants API retirement, MCP)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-end-to-end-tutorial" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-end-to-end-tutorial</a>
+        </li>
+        <li>
+          <div class="src-t">Data agent as Model Context Protocol server</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server</a>
+        </li>
+        <li>
+          <div class="src-t">Consume a data agent from Microsoft Copilot (Agent Store)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-365-copilot" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-365-copilot</a>
+        </li>
+
+        <li class="src-group">Copilot Studio and Dataverse</li>
+        <li>
+          <div class="src-t">Consume a Fabric data agent as a tool in Microsoft Copilot Studio</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-copilot-studio-tool" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-copilot-studio-tool</a>
+        </li>
+        <li>
+          <div class="src-t">Consume a data agent in Microsoft Copilot Studio as a connected agent (preview)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-copilot-studio" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-microsoft-copilot-studio</a>
+        </li>
+        <li>
+          <div class="src-t">Connect to a Microsoft Fabric data agent (preview), Copilot Studio docs</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-fabric-data-agent" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-fabric-data-agent</a>
+        </li>
+        <li>
+          <div class="src-t">Harnesses in Copilot Studio</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/harnesses-overview" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/harnesses-overview</a>
+        </li>
+        <li>
+          <div class="src-t">Understand downloaded conversation transcripts from Power Apps (ConversationTranscript table, retention)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-transcripts-powerapps" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-transcripts-powerapps</a>
+        </li>
+        <li>
+          <div class="src-t">Understand downloaded session data from Copilot Studio (CSV, 28 days, 512 characters)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-transcripts-studio" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-transcripts-studio</a>
+        </li>
+        <li>
+          <div class="src-t">Control how transcripts are retained and accessed</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-transcript-controls" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/admin-transcript-controls</a>
+        </li>
+        <li>
+          <div class="src-t">Copilot Agent Kit: Conversation KPIs</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/kit-conversation-kpi" target="_blank" rel="noopener">learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/kit-conversation-kpi</a>
+        </li>
+        <li>
+          <div class="src-t">Link your Dataverse environment to Microsoft Fabric</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/power-apps/maker/data-platform/azure-synapse-link-view-in-fabric" target="_blank" rel="noopener">learn.microsoft.com/en-us/power-apps/maker/data-platform/azure-synapse-link-view-in-fabric</a>
+        </li>
+        <li>
+          <div class="src-t">Link to Microsoft Fabric: setup, table selection, sync timing</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/power-apps/maker/data-platform/fabric-link-to-data-platform" target="_blank" rel="noopener">learn.microsoft.com/en-us/power-apps/maker/data-platform/fabric-link-to-data-platform</a>
+        </li>
+
+        <li class="src-group">Microsoft Purview</li>
+        <li>
+          <div class="src-t">Audit logs for Copilot and AI applications</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/purview/audit-copilot" target="_blank" rel="noopener">learn.microsoft.com/en-us/purview/audit-copilot</a>
+        </li>
+        <li>
+          <div class="src-t">Microsoft Purview data security and compliance protections for generative AI apps</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/purview/ai-microsoft-purview" target="_blank" rel="noopener">learn.microsoft.com/en-us/purview/ai-microsoft-purview</a>
+        </li>
+        <li>
+          <div class="src-t">Data Security Posture Management for AI (collection policies, Activity explorer)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/purview/dspm-for-ai" target="_blank" rel="noopener">learn.microsoft.com/en-us/purview/dspm-for-ai</a>
+        </li>
+        <li>
+          <div class="src-t">Retention for Copilot and AI apps</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/purview/retention-policies-copilot" target="_blank" rel="noopener">learn.microsoft.com/en-us/purview/retention-policies-copilot</a>
+        </li>
+        <li>
+          <div class="src-t">Search for and delete Copilot and AI data in eDiscovery (item classes)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/purview/edisc-search-copilot-data" target="_blank" rel="noopener">learn.microsoft.com/en-us/purview/edisc-search-copilot-data</a>
+        </li>
+        <li>
+          <div class="src-t">Office 365 Management Activity API reference</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-reference" target="_blank" rel="noopener">learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-reference</a>
+        </li>
+
+        <li class="src-group">Microsoft Foundry</li>
+        <li>
+          <div class="src-t">Use the Microsoft Fabric data agent tool in Foundry (deprecation notice, November 6, 2026)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric" target="_blank" rel="noopener">learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric</a>
+        </li>
+        <li>
+          <div class="src-t">Consume Fabric data agent from Microsoft Foundry (retiring integration notice)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry</a>
+        </li>
+        <li>
+          <div class="src-t">Connect agents to Microsoft Fabric with Fabric IQ (preview)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric-iq" target="_blank" rel="noopener">learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric-iq</a>
+        </li>
+        <li>
+          <div class="src-t">Add Fabric data agents to a Foundry agent with Fabric IQ (preview)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry-fabric-iq" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry-fabric-iq</a>
+        </li>
+        <li>
+          <div class="src-t">Observability for Fabric data agents in Microsoft Foundry (preview)</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent-foundry-observability" target="_blank" rel="noopener">learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent-foundry-observability</a>
+        </li>
+        <li>
+          <div class="src-t">Set up tracing in Microsoft Foundry</div>
+          <a class="src-u" href="https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-setup" target="_blank" rel="noopener">learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-setup</a>
+        </li>
+      </ul>
+      <p style="margin:14px 0 0;color:var(--cp-text-muted);font-size:14px;">Licensing varies by surface: data agents need a paid F2 or higher Fabric capacity, or Power BI Premium P1 or higher with Fabric enabled; Copilot Studio and Microsoft 365 Copilot have their own license prerequisites; Purview features vary by plan. Check the linked prerequisites before you implement.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  const answers = {
+    analytics: { approach: "a", lead: "Start with Approach A: Copilot Studio + Dataverse + Fabric.", body: "Transcripts land in Dataverse automatically, Link to Fabric brings them into OneLake, and you parse the JSON into tables for Power BI. Validate that the data agent's answer text appears for your harness and channel." },
+    compliance: { approach: "b", lead: "Start with Approach B: Microsoft 365 Copilot + Purview.", body: "Retention policies, audit, DSPM for AI, and eDiscovery cover Copilot interactions stored in user mailboxes. Purview support for Fabric data agents is in preview, so confirm turns are captured before relying on it." },
+    custom: { approach: "c", lead: "Start with Approach C: your own MCP client.", body: "Call the published data agent's MCP endpoint and log each question and answer yourself. The MCP endpoint doesn't manage conversation state, so your client owns both the state and the log." },
+    foundry: { approach: "d", lead: "Use Approach D: a Foundry agent with the Fabric IQ tool.", body: "The Fabric data agent tool in Foundry Agent Service isn't supported starting November 6, 2026. Foundry traces in Application Insights help with debugging; the data agent's spans carry metadata only, so pair this with Purview or your own logging if you need conversation content." }
+  };
+  const buttons = document.querySelectorAll(".chooser button");
+  const out = document.getElementById("answer");
+  const cards = document.querySelectorAll(".card.approach");
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const a = answers[btn.dataset.goal];
+      buttons.forEach((b) => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+      cards.forEach((c) => c.classList.toggle("hl", c.dataset.approach === a.approach));
+      out.innerHTML = "";
+      const lead = document.createElement("p");
+      lead.className = "lead";
+      lead.textContent = a.lead;
+      const body = document.createElement("p");
+      body.style.margin = "0";
+      body.textContent = a.body;
+      const link = document.createElement("a");
+      link.href = "#arch-" + a.approach;
+      link.textContent = "Jump to the details";
+      out.append(lead, body);
+      const p = document.createElement("p");
+      p.style.margin = "8px 0 0";
+      p.append(link);
+      out.append(p);
+    });
+  });
+
+  const boxes = document.querySelectorAll("#checklist input");
+  const progress = document.getElementById("progress");
+  const update = () => {
+    const n = Array.from(boxes).filter((b) => b.checked).length;
+    progress.textContent = n + " of " + boxes.length + " checked";
+  };
+  boxes.forEach((b) => b.addEventListener("change", update));
+  update();
+})();
+</script>
+
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content checked against Microsoft Learn documentation on November 6, 2026.<br>
+  Product features change often, especially in preview. For the latest information, always check the official Microsoft Learn documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+</body>
+</html>

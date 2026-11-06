@@ -9,6 +9,12 @@ Interactive explainers on data and AI platform topics, published with GitHub Pag
 | Fabric data agent tool in Foundry is retiring: your options | [Open](https://amruthasatishkumar.github.io/data-ai-guides/fabric-foundry-data-agent-migration/) |
 | Snowgrid explained: moving Snowflake from AWS to Azure | [Open](https://amruthasatishkumar.github.io/data-ai-guides/snowgrid-explained/) |
 | Use Claude to design data cleaning for a Fabric lakehouse | [Open](https://amruthasatishkumar.github.io/data-ai-guides/claude-fabric-lakehouse-cleaning/) |
+| Fabric data agent to Claude via MCP: a governed reference architecture | [Open](https://amruthasatishkumar.github.io/data-ai-guides/fabric-data-agent-to-claude-mcp/) |
+| Capturing and analyzing Fabric data agent conversations | [Open](https://amruthasatishkumar.github.io/data-ai-guides/fabric-data-agent-conversation-analytics/) |
+| External data sharing in Microsoft Fabric: how it works | [Open](https://amruthasatishkumar.github.io/data-ai-guides/fabric-external-data-sharing/) |
+| Mirror an Azure SQL Database into Microsoft Fabric | [Open](https://amruthasatishkumar.github.io/data-ai-guides/azure-sql-to-fabric-mirroring/) |
+| Fabric Database Hub and databases: an interactive field guide | [Open](https://amruthasatishkumar.github.io/data-ai-guides/fabric-database-hub/) |
+| Moving Snowflake from AWS to Azure: steps, editions and costs | [Open](https://amruthasatishkumar.github.io/data-ai-guides/snowflake-aws-to-azure-migration/) |
 
 ## Adding a guide
 

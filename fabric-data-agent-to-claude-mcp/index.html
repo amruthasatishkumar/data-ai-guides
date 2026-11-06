@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fabric data agent to Claude via MCP | Reference architecture</title>
+<meta name="description" content="Independent explainer: how a Microsoft Fabric data agent, published as an MCP server, can be used from Claude, what the identity options are, and what is documented versus what you should test." />
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #15803d;
+  --cp-danger: #dc2626;
+  --cp-warning: #b45309;
+  --cp-info: #1d4a7a;
+  --cp-link: #0067b8;
+  --cp-code-bg: #eef2f7;
+  --cp-pre-bg: #10233a;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #a3a3a3;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-info: #8cc4ff;
+  --cp-link: #6cb6ff;
+  --cp-code-bg: #1f2a36;
+  --cp-pre-bg: #0b1622;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  padding: 14px;
+}
+a { color: var(--cp-link); }
+#canvas {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--cp-bg-elevated);
+  border: 1px solid var(--cp-border);
+  border-radius: 18px;
+  padding: 26px 28px 22px;
+  box-shadow: var(--cp-shadow);
+}
+code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  background: var(--cp-code-bg);
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: var(--cp-pre-bg);
+  color: #e6eef7;
+  border-radius: 8px;
+  padding: 11px 13px;
+  overflow-x: auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0 6px;
+  white-space: pre;
+}
+
+/* Header */
+.head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 16px; }
+.eyebrow {
+  color: var(--cp-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 8px; }
+h2 { font-size: 19px; line-height: 1.2; margin: 26px 0 6px; }
+.sub { font-size: 14.5px; color: var(--cp-text-muted); max-width: 900px; }
+.lede { font-size: 13.5px; color: var(--cp-text-muted); margin-bottom: 12px; max-width: 940px; }
+.theme-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--cp-border-strong);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font: 600 12.5px "Segoe UI", Arial, sans-serif;
+  cursor: pointer;
+}
+.theme-btn:hover { border-color: var(--cp-accent); }
+.disclaimer {
+  font-size: 12.5px;
+  color: var(--cp-text-muted);
+  border-left: 3px solid var(--cp-border-strong);
+  padding: 4px 10px;
+  margin-bottom: 16px;
+}
+
+/* Foundation band */
+.foundation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--cp-surface-soft);
+  border: 1px dashed var(--cp-border-strong);
+  border-radius: 12px;
+  padding: 9px 14px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  color: var(--cp-text-muted);
+}
+.foundation strong { color: var(--cp-text); }
+.tag {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-weight: 650;
+  color: var(--cp-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Pipeline */
+.pipeline, .explains {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
+  align-items: stretch;
+}
+.pipeline { margin-bottom: 10px; }
+.stage {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 14px;
+  padding: 13px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color .15s, transform .15s;
+}
+.stage:hover { border-color: var(--cp-accent); transform: translateY(-1px); }
+.stage:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 2px; }
+.stage.featured { border-color: var(--cp-accent); border-width: 2px; }
+.stage.on { background: var(--cp-accent-soft); border-color: var(--cp-accent); border-width: 2px; }
+.stage-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.badge {
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--cp-accent);
+  color: var(--cp-accent-fg);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+}
+.icon { font-size: 20px; line-height: 1; }
+.stage h3 { font-size: 14.5px; line-height: 1.15; }
+.stage .does {
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  border-top: 1px solid var(--cp-border);
+  padding-top: 8px;
+  margin-top: 2px;
+  flex: 1;
+}
+.stage .more { font-size: 11px; font-weight: 700; color: var(--cp-accent); margin-top: 8px; }
+.pill {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 9px;
+  font-size: 10px;
+  font-weight: 750;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pill.ga { background: rgba(22,163,74,0.12); color: var(--cp-success); border: 1px solid var(--cp-success); }
+.pill.preview { background: rgba(245,158,11,0.14); color: var(--cp-warning); border: 1px solid var(--cp-warning); }
+.pill.info { background: rgba(29,74,122,0.10); color: var(--cp-info); border: 1px solid var(--cp-info); }
+.pill.test { background: var(--cp-accent-soft); color: var(--cp-accent); border: 1px solid var(--cp-accent); }
+.pill.inline { margin-top: 0; vertical-align: 1px; }
+.arrow { display: grid; place-items: center; color: var(--cp-accent); font-size: 24px; font-weight: 800; }
+
+.detail {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-accent);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.detail h3 { font-size: 15px; margin-bottom: 6px; }
+.detail ul { padding-left: 18px; display: grid; gap: 5px; }
+.detail li { font-size: 13px; }
+.detail .hint { font-size: 12px; color: var(--cp-text-soft); margin-top: 8px; }
+.stage-panel { display: none; }
+.stage-panel.on { display: block; }
+
+/* New-to-this callouts */
+.explains { margin-bottom: 8px; }
+.explain {
+  background: var(--cp-accent-soft);
+  border-left: 4px solid var(--cp-accent);
+  border-radius: 0 10px 10px 0;
+  padding: 10px 12px;
+  font-size: 11.8px;
+  line-height: 1.42;
+  color: var(--cp-text);
+}
+.explain .lbl {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 800; font-size: 11px; margin-bottom: 4px;
+  color: var(--cp-accent); text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Comparison table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--cp-surface); border: 1px solid var(--cp-border); font-size: 12.8px; }
+th { background: var(--cp-info); color: #fff; text-align: left; padding: 9px 11px; font-weight: 650; vertical-align: bottom; }
+html[data-theme="dark"] th { color: #0b1622; }
+td { padding: 9px 11px; border-top: 1px solid var(--cp-border); vertical-align: top; }
+td.k { font-weight: 650; width: 17%; }
+th.hl, td.hl { background: var(--cp-accent-soft); }
+th.hl { background: var(--cp-accent); color: var(--cp-accent-fg); }
+
+/* Auth tabs */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin-bottom: 12px;
+}
+.fact {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 12.5px;
+}
+.fact b.t { display: block; font-size: 13px; margin-bottom: 4px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tabs button {
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font: 600 13px "Segoe UI", Arial, sans-serif;
+  cursor: pointer;
+}
+.tabs button.on { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); }
+.tab-panel { display: none; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 14px 16px; }
+.tab-panel.on { display: block; }
+.tab-panel h3 { font-size: 15px; margin-bottom: 4px; }
+.tab-panel p { font-size: 13px; margin: 6px 0; }
+.tab-panel ul, .tab-panel ol { padding-left: 20px; display: grid; gap: 5px; margin: 6px 0; }
+.tab-panel li { font-size: 13px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cols > div { min-width: 0; }
+.label { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--cp-text-soft); margin-top: 8px; }
+.note {
+  border-left: 4px solid var(--cp-warning);
+  background: rgba(245,158,11,0.08);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  margin: 8px 0;
+}
+.note.doc { border-left-color: var(--cp-success); background: rgba(22,163,74,0.07); }
+
+/* Callouts section */
+.callouts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; margin-bottom: 8px; }
+.callout { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 12px 13px; }
+.callout h4 { display: flex; align-items: center; gap: 7px; font-size: 13px; margin-bottom: 7px; }
+.callout h4 .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot.identity { background: var(--cp-link); }
+.dot.security { background: var(--cp-success); }
+.dot.boundary { background: var(--cp-warning); }
+.dot.preview  { background: var(--cp-accent); }
+.callout ul { list-style: none; display: grid; gap: 5px; }
+.callout li { font-size: 11.8px; line-height: 1.4; color: var(--cp-text-muted); padding-left: 13px; position: relative; }
+.callout li::before { content: "\203A"; position: absolute; left: 0; color: var(--cp-accent); font-weight: 800; }
+.callout li b { color: var(--cp-text); }
+
+/* Checklist */
+.progress { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 12.5px; color: var(--cp-text-muted); }
+.bar { flex: 1; height: 10px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 6px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--cp-accent); transition: width .2s; }
+.chk { list-style: none; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 4px 14px; }
+.chk li { padding: 7px 0; border-top: 1px solid var(--cp-border); }
+.chk li:first-child { border-top: 0; }
+.chk label { display: flex; gap: 10px; cursor: pointer; font-size: 13px; }
+.chk input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--cp-accent); flex: none; }
+.chk input:checked + span { text-decoration: line-through; color: var(--cp-text-soft); }
+.reset { border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); border-radius: 6px; padding: 3px 10px; font: 600 12px "Segoe UI", Arial, sans-serif; cursor: pointer; }
+
+/* Sources and legend */
+.sources { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 12px 16px; }
+.sources h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-soft); margin: 8px 0 4px; }
+.sources h4:first-child { margin-top: 0; }
+.sources ol { padding-left: 20px; display: grid; gap: 3px; }
+.sources li { font-size: 12.5px; }
+.legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-soft); margin-top: 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend .k { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.k.ga { background: var(--cp-success); }
+.k.pv { background: var(--cp-warning); }
+.k.in { background: var(--cp-info); }
+.k.ts { background: var(--cp-accent); }
+
+@media (max-width: 900px) {
+  .pipeline, .explains { grid-template-columns: 1fr; gap: 8px; }
+  .arrow { transform: rotate(90deg); height: 22px; }
+  .explains .spacer { display: none; }
+  .callouts, .facts { grid-template-columns: 1fr 1fr; }
+  .cols { grid-template-columns: 1fr; }
+  .head { flex-direction: column; }
+}
+@media (max-width: 600px) {
+  .callouts, .facts { grid-template-columns: 1fr; }
+  #canvas { padding: 18px 16px; }
+}
+
+.site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+.site-foot a { color:#1d4a7a; }
+html[data-theme="dark"] .site-foot { color:#c7cdd4; border-top-color:#5f5f5f; }
+html[data-theme="dark"] .site-foot a { color:#8cc4ff; }
+</style>
+</head>
+<body>
+<div id="canvas">
+  <div class="head">
+    <div>
+      <div class="eyebrow">Reference architecture &nbsp;&middot;&nbsp; Microsoft Fabric + Claude</div>
+      <h1>Semantic model to Claude: a governed Fabric data agent path over MCP</h1>
+      <p class="sub">Curate a semantic model, optionally add an ontology for shared business meaning, expose both through one Fabric data agent, then let Claude ask questions through the Model Context Protocol (MCP). This guide explains each layer, how identity works, and which parts are documented versus which you should test in your own tenant.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-pressed="false">Dark mode</button>
+  </div>
+  <p class="disclaimer">Independent explainer built from public Microsoft Learn and Anthropic documentation. Names such as <b>Contoso</b> and <b>Sales semantic model</b> are fictional examples. Labels used here: <span class="pill ga inline">GA</span> generally available, <span class="pill preview inline">Preview</span> preview or beta, <span class="pill test inline">Test</span> an inference this guide makes that the docs do not state directly.</p>
+
+  <div class="foundation">
+    <span class="tag">Foundation</span>
+    <span><strong>OneLake governed data</strong>: lakehouse, warehouse, mirrored database, KQL database. The semantic model and ontology add business meaning on top. Source data stays where it lives; the ontology binds to sources instead of copying them.</span>
+  </div>
+
+  <div class="pipeline" role="tablist" aria-label="Architecture stages">
+    <button class="stage on" type="button" role="tab" aria-selected="true" data-stage="s1">
+      <div class="stage-top"><div class="badge">1</div><div class="icon">&#129521;</div><h3>Curate the semantic model</h3></div>
+      <div class="does">Friendly names, relationships, DAX measures and clear descriptions so AI can interpret the data correctly. Example: a Contoso <i>Sales semantic model</i>.</div>
+      <span class="pill ga">Generally available</span>
+      <span class="more">Details &#9662;</span>
+    </button>
+    <div class="arrow" aria-hidden="true">&rarr;</div>
+    <button class="stage" type="button" role="tab" aria-selected="false" data-stage="s2">
+      <div class="stage-top"><div class="badge">2</div><div class="icon">&#128376;&#65039;</div><h3>Generate the ontology (optional)</h3></div>
+      <div class="does">Generate from the semantic model: tables become entity types, relationships become relationship types, DAX measures become metrics. Review keys and bindings, add rules.</div>
+      <span class="pill preview">Preview (Fabric IQ)</span>
+      <span class="more">Details &#9662;</span>
+    </button>
+    <div class="arrow" aria-hidden="true">&rarr;</div>
+    <button class="stage featured" type="button" role="tab" aria-selected="false" data-stage="s3">
+      <div class="stage-top"><div class="badge">3</div><div class="icon">&#129302;</div><h3>Create the data agent</h3></div>
+      <div class="does">Connect up to five sources, such as the semantic model and the ontology. Add instructions. It generates, validates and runs read-only queries.</div>
+      <span class="pill ga">Data agent GA</span>
+      <span class="more">Details &#9662;</span>
+    </button>
+    <div class="arrow" aria-hidden="true">&rarr;</div>
+    <button class="stage featured" type="button" role="tab" aria-selected="false" data-stage="s4">
+      <div class="stage-top"><div class="badge">4</div><div class="icon">&#128172;</div><h3>Publish as MCP &amp; connect Claude</h3></div>
+      <div class="does">Publishing exposes an MCP server with one tool. Claude acts as the MCP client and must send a Microsoft Entra bearer token for Fabric.</div>
+      <span class="pill info">Publish required</span>
+      <span class="more">Details &#9662;</span>
+    </button>
+  </div>
+
+  <div class="detail" aria-live="polite">
+    <div class="stage-panel on" id="s1" role="tabpanel">
+      <h3>1 &middot; Curate the semantic model</h3>
+      <ul>
+        <li>The data agent writes DAX against the model (NL2DAX), so clear table, column and measure names and descriptions directly shape answer quality.</li>
+        <li>To query a semantic model <b>through a data agent</b>, a user needs <b>Read</b> on the model. Build and workspace access aren't required for agent queries. Build or Write is still needed to change the model or to use features such as Prep for AI.</li>
+        <li>Row-level security (RLS) and column-level security (CLS) continue to apply to agent queries.</li>
+      </ul>
+      <p class="hint">Sources: <a href="https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent" target="_blank" rel="noopener">How the data agent works</a>, <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-sharing" target="_blank" rel="noopener">Data agent sharing and permissions</a>.</p>
+    </div>
+    <div class="stage-panel" id="s2" role="tabpanel">
+      <h3>2 &middot; Generate the ontology <span class="pill preview inline">Preview</span></h3>
+      <ul>
+        <li>An ontology defines business concepts (customers, products, orders), their properties, relationships, <b>rules</b> and <b>metrics</b>, then binds them to data. It is a context layer, not a separate data store.</li>
+        <li><b>Generate Ontology</b> on a semantic model creates entity types from tables, properties and bindings from columns, relationship types from model relationships, and metrics from DAX measures. The semantic model stays the owner of each DAX expression.</li>
+        <li>After generation, do the manual steps: bind time series data, review entity type keys, bind relationship types, rename to friendly names, and review the whole ontology.</li>
+        <li>Tenant settings <i>Users can create ontology (preview) items</i> and <i>Users can create Fabric items</i> must be enabled.</li>
+        <li><b>Permissions differ between docs.</b> The ontology generation page says Read <b>and</b> Build on the semantic model are needed to generate an ontology and to query the semantic model through the ontology. The data agent sharing page lists Read on the ontology item plus Read on the bound sources. <span class="pill test inline">Test</span> with a Read-only pilot user before rollout.</li>
+        <li>When the semantic model changes, review the ontology and rerun your test questions. (Recommended practice, not a documented sync rule.)</li>
+      </ul>
+      <p class="hint">Sources: <a href="https://learn.microsoft.com/en-us/fabric/iq/ontology/overview" target="_blank" rel="noopener">What is ontology (preview)</a>, <a href="https://learn.microsoft.com/en-us/fabric/iq/ontology/how-to-generate-from-semantic-models" target="_blank" rel="noopener">Generate ontology from semantic models</a>, <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-sharing" target="_blank" rel="noopener">Data agent sharing</a>.</p>
+    </div>
+    <div class="stage-panel" id="s3" role="tabpanel">
+      <h3>3 &middot; Create the data agent</h3>
+      <ul>
+        <li>Prerequisites: a paid F2 or higher Fabric capacity (or Power BI Premium P1 or higher with Fabric enabled), and the tenant settings for cross-geo processing and storing for AI, as required.</li>
+        <li>Up to <b>five</b> data sources in any combination: lakehouses, warehouses, KQL databases, Power BI semantic models, ontologies, mirrored databases and Microsoft Graph.</li>
+        <li>The agent picks a source, writes SQL, DAX or KQL, validates it, and runs it read-only <b>with the requesting user's credentials</b>. Purview DLP and access restriction policies on the sources are respected.</li>
+        <li>Add <b>instructions</b> for routing and terminology. Example question and query pairs help for SQL and KQL sources, but they <b>aren't supported for semantic model sources</b>.</li>
+        <li>Sharing the agent is not enough: users also need permission on each underlying source. With the default share permission, users can query only the <b>published</b> version.</li>
+      </ul>
+      <p class="hint">Sources: <a href="https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent" target="_blank" rel="noopener">Fabric data agent concepts</a>, <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-sharing" target="_blank" rel="noopener">Data agent sharing</a>.</p>
+    </div>
+    <div class="stage-panel" id="s4" role="tabpanel">
+      <h3>4 &middot; Publish as an MCP server, then connect Claude</h3>
+      <ul>
+        <li>After you publish, open the agent's <b>Settings &gt; Model Context Protocol</b> tab for the server name, server URL, tool name and tool description, or download <code>mcp.json</code>.</li>
+        <li>URL format: <code>https://api.fabric.microsoft.com/v1/mcp/workspaces/{workspaceId}/dataagents/{dataAgentId}/agent</code>. It works only for a published agent.</li>
+        <li>The published <b>description</b> becomes the MCP tool description that Claude reads to decide when to call the agent. Make it specific.</li>
+        <li>Every request needs a bearer token for a user or a service principal, requested for the scope <code>https://api.fabric.microsoft.com/.default</code>.</li>
+        <li>The server does <b>not</b> support dynamic client registration or client ID metadata documents. The client must get a Fabric token through its own flow. See the identity options below.</li>
+        <li>For long questions the server supports the MCP <b>tasks</b> extension; clients without it get the answer on the same connection.</li>
+        <li>Answers returned to an MCP client may leave Fabric's compliance boundary or region and are then handled under that client's terms.</li>
+      </ul>
+      <p class="hint">Source: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server" target="_blank" rel="noopener">Data agent as Model Context Protocol server</a>. The data agent itself is generally available; this Learn page carried no preview label when checked on November 6, 2026.</p>
+    </div>
+  </div>
+
+  <div class="explains">
+    <div class="explain">
+      <div class="lbl">&#128161; New to this</div>
+      A <b>semantic model</b> is the governed business layer over raw tables: relationships, measures and security. For querying through a data agent, users need only <b>Read</b> on it.
+    </div>
+    <div class="spacer"></div>
+    <div class="explain">
+      <div class="lbl">&#128161; New to this</div>
+      An <b>ontology</b> describes the business (customers, orders, assets), their relationships, <b>metrics</b> and <b>rules</b>. Source DAX measures appear as metrics, so agents reuse trusted calculations instead of reinventing them.
+    </div>
+    <div class="spacer"></div>
+    <div class="explain">
+      <div class="lbl">&#128161; New to this</div>
+      A <b>data agent</b> is a conversational Q&amp;A layer. It routes a question to the right source, writes DAX, SQL or KQL, validates it, and runs it <b>under the caller's identity</b>.
+    </div>
+    <div class="spacer"></div>
+    <div class="explain">
+      <div class="lbl">&#128161; New to this</div>
+      <b>MCP</b> is an open standard for connecting AI clients to tools. Claude is the <b>client</b>; the published agent is the <b>server</b>. Publish first, or the endpoint returns an error.
+    </div>
+  </div>
+
+  <h2>Three Fabric MCP servers, not one</h2>
+  <p class="lede">"Connect Claude to Fabric" can mean three different Microsoft endpoints. They expose different tools, support different identities, and have different documentation for Claude. This guide is about the first one.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th></th><th class="hl">Data agent MCP server</th><th>Fabric IQ MCP server</th><th>Power BI MCP servers (hosted)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">What Claude gets</td><td class="hl">One tool per published data agent. Claude sends a natural-language question and gets an answer grounded in the agent's sources.</td><td>A read-only toolset: <code>DiscoverArtifacts</code>, <code>ResolveFabricItem</code>, <code>GetReportMetadata</code>, <code>GetSemanticModelSchema</code>, <code>ValueSearch</code>, <code>ExecuteQuery</code>. No natural-language answering tool.</td><td>Consumption server (the earlier endpoint) and Authoring server for semantic models.</td></tr>
+        <tr><td class="k">Who writes the query</td><td class="hl">The data agent, inside Fabric, using your instructions and ontology.</td><td>The AI client (for example Claude) composes DAX and explains results.</td><td>The AI client.</td></tr>
+        <tr><td class="k">Sources</td><td class="hl">Whatever the agent connects: semantic models, ontologies, lakehouses, warehouses, KQL, mirrored databases, Microsoft Graph.</td><td>Power BI reports and semantic models only. Doesn't currently support ontologies or data agents.</td><td>Power BI semantic models.</td></tr>
+        <tr><td class="k">Endpoint</td><td class="hl"><code>api.fabric.microsoft.com/v1/mcp/workspaces/{id}/dataagents/{id}/agent</code></td><td><code>fabriciq.svc.cloud.microsoft/v1/mcp/fabriciq</code> (with private links: <code>api.fabric.microsoft.com/v1/mcp/fabriciq</code>)</td><td><code>api.fabric.microsoft.com/v1/mcp/powerbi</code> and <code>.../powerbi/authoring</code></td></tr>
+        <tr><td class="k">Identity</td><td class="hl">User token or service principal token (service principal for data agents is preview).</td><td>Delegated user only (<code>Item.Read.All</code>, <code>Item.Execute.All</code>). No service principal or app-only.</td><td>Delegated user with Power BI Service permissions.</td></tr>
+        <tr><td class="k">Status</td><td class="hl">Data agent GA. MCP page had no preview label on Nov 6, 2026.</td><td><span class="pill ga inline">GA</span></td><td><span class="pill preview inline">Preview</span> For semantic model consumption, Microsoft recommends Fabric IQ MCP.</td></tr>
+        <tr><td class="k">Claude setup in Microsoft docs</td><td class="hl">Not documented for Claude specifically. Docs say any MCP client works if it can attach a valid Fabric bearer token.</td><td>Generic: clients without a preregistered Entra app need your own single-tenant app registration.</td><td><b>Yes</b>: Claude Desktop custom connector with your own Entra app and redirect URI <code>https://claude.ai/api/mcp/auth_callback</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lede" style="margin-top:8px">Rule of thumb: choose the <b>data agent</b> when Fabric should own query generation with your instructions, ontology and multi-source routing. Choose <b>Fabric IQ MCP</b> when you want Claude to explore reports and semantic models and write DAX itself.</p>
+
+  <h2>Connecting Claude: identity options</h2>
+  <p class="lede">The data agent endpoint needs a Fabric token on every request and can't register Claude automatically. Pick the Claude surface you plan to use to see what is documented and what you need to test.</p>
+  <div class="facts">
+    <div class="fact"><b class="t">Microsoft (documented)</b>No dynamic client registration (DCR) or client ID metadata document (CIMD) support. The client uses its own auth flow and sends a token for <code>https://api.fabric.microsoft.com/.default</code>.</div>
+    <div class="fact"><b class="t">Anthropic (documented)</b>Custom connectors identify Claude by CIMD ("Use Claude's published identity"), by DCR ("Register automatically"), or with <b>"Use your own OAuth client"</b>. Only the last fits this endpoint.</div>
+    <div class="fact"><b class="t">Observed on Nov 6, 2026</b>An unauthenticated call to the endpoint returned <code>401</code> with a <code>resource_metadata</code> pointer naming Microsoft Entra as the authorization server and the Fabric <code>.default</code> scope. The Power BI MCP endpoint returned the same metadata.</div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Claude surfaces">
+    <button type="button" class="on" data-tab="t1" role="tab" aria-selected="true">claude.ai and Claude Desktop</button>
+    <button type="button" data-tab="t2" role="tab" aria-selected="false">Claude Code</button>
+    <button type="button" data-tab="t3" role="tab" aria-selected="false">Static request header</button>
+    <button type="button" data-tab="t4" role="tab" aria-selected="false">Your own MCP gateway</button>
+    <button type="button" data-tab="t0" role="tab" aria-selected="false">Validate first</button>
+  </div>
+
+  <div class="tab-panel on" id="t1" role="tabpanel">
+    <h3>Custom connector with your own Entra app <span class="pill test inline">Test before rollout</span></h3>
+    <div class="cols">
+      <div>
+        <div class="label">Documented</div>
+        <ul>
+          <li><b>Team and Enterprise:</b> an Owner adds the connector in Organization settings &gt; Connectors &gt; Add &gt; Custom. Members then connect with their own account. On individual plans you add it yourself.</li>
+          <li>Under <b>OAuth client</b>, choose <b>Use your own OAuth client</b> and enter a client ID. Leave the secret blank unless the authorization server requires one.</li>
+          <li>Hosted Claude apps (web, Desktop, mobile) use the redirect URI <code>https://claude.ai/api/mcp/auth_callback</code>.</li>
+          <li>Microsoft documents this exact pattern for the <b>Power BI</b> MCP servers: a single-tenant Entra app, a <i>Mobile and desktop applications</i> redirect with the Claude callback URL, delegated Power BI Service permissions, and the app's client ID in Claude.</li>
+          <li>Connector traffic comes from Anthropic's infrastructure (Anthropic publishes its egress IP ranges), not from the user's device.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Inference to test</div>
+        <ul>
+          <li>Because the data agent endpoint is on the same host and advertises the same Entra metadata as the Power BI MCP endpoint, the same own-app pattern is <b>likely</b> to work. Microsoft doesn't document Claude for the data agent endpoint.</li>
+          <li>Microsoft doesn't list which delegated permissions a custom app needs for the data agent endpoint. Start a pilot app registration and confirm sign-in, consent and a real answer.</li>
+          <li>If your tenant restricts inbound access to Fabric (for example private links) or uses location-based Conditional Access, calls from Anthropic's cloud may be blocked. Check with your identity and network teams.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="label">Pilot steps</div>
+    <ol>
+      <li>Register a single-tenant app in Microsoft Entra ID, for example <i>Contoso Sales agent - Claude</i>.</li>
+      <li>Add the redirect URI <code>https://claude.ai/api/mcp/auth_callback</code> under Mobile and desktop applications, as Microsoft's Power BI guidance shows.</li>
+      <li>Add the delegated Power BI Service permissions your tests show are required; grant admin consent if your tenant requires it.</li>
+      <li>In Claude, add a custom connector with the agent's MCP server URL, choose <b>Use your own OAuth client</b>, and paste the client ID.</li>
+      <li>Connect, sign in, ask a known question, and compare the answer with the same question in Fabric.</li>
+    </ol>
+    <div class="note">Authentication settings can't be edited after a connector is added. To change them, remove and re-add the connector; members then reconnect.</div>
+  </div>
+
+  <div class="tab-panel" id="t2" role="tabpanel">
+    <h3>Claude Code on a developer machine <span class="pill test inline">Documented parts, untested combination</span></h3>
+    <p>Claude Code documents two building blocks that match Microsoft's "bring your own token" requirement. The combination with the data agent endpoint isn't documented end to end, so test it.</p>
+    <div class="cols">
+      <div>
+        <div class="label">Option A: dynamic header (headersHelper)</div>
+        <p>Claude Code runs a command at connect time and merges its JSON output into request headers. The command can fetch a Fabric token for the signed-in developer, so the agent applies that person's permissions and RLS.</p>
+<pre>{
+  "mcpServers": {
+    "contoso-sales-agent": {
+      "type": "http",
+      "url": "https://api.fabric.microsoft.com/v1/mcp/workspaces/&lt;workspaceId&gt;/dataagents/&lt;dataAgentId&gt;/agent",
+      "headersHelper": "/usr/local/bin/fabric-mcp-header.sh"
+    }
+  }
+}</pre>
+<pre>#!/usr/bin/env bash
+# fabric-mcp-header.sh: prints the Authorization header as JSON
+TOKEN=$(az account get-access-token \
+  --scope https://api.fabric.microsoft.com/.default \
+  --query accessToken -o tsv)
+printf '{"Authorization": "Bearer %s"}' "$TOKEN"</pre>
+        <p>The helper runs at session start and on reconnect, isn't cached, and must finish within 10 seconds. Access tokens expire, so a long session may need a reconnect.</p>
+      </div>
+      <div>
+        <div class="label">Option B: pre-configured OAuth client</div>
+        <p>For servers without DCR, Claude Code accepts your own client ID and a fixed callback port.</p>
+<pre>claude mcp add --transport http \
+  --client-id &lt;entra-app-client-id&gt; --callback-port 8080 \
+  contoso-sales-agent \
+  https://api.fabric.microsoft.com/v1/mcp/workspaces/&lt;workspaceId&gt;/dataagents/&lt;dataAgentId&gt;/agent</pre>
+        <p>Register <code>http://localhost:8080/callback</code> on the Entra app. Use only <code>--client-id</code> for a public client with no secret.</p>
+        <div class="label">Long-running questions</div>
+        <p>The data agent server supports the MCP tasks extension. Claude Code supports MCP tasks in public beta (v2.1.304 or later). <span class="pill preview inline">Beta</span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="t3" role="tabpanel">
+    <h3>Static request header <span class="pill preview inline">Beta</span> Not recommended here</h3>
+    <div class="cols">
+      <div>
+        <div class="label">Documented</div>
+        <ul>
+          <li>Request headers on custom connectors are in beta for a limited set of organizations.</li>
+          <li>An Owner enters a fixed credential once; Claude sends it on every request from <b>every member</b>.</li>
+          <li>Anthropic says to treat it as the organization's credential, not a person's, and to use OAuth when tools must act as the individual user.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Why it is a poor fit</div>
+        <ul>
+          <li>Fabric expects a Microsoft Entra access token. These tokens are short-lived, so a pasted token stops working.</li>
+          <li>One shared identity means answers no longer reflect the asker's own permissions or RLS.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="t4" role="tabpanel">
+    <h3>Your own MCP gateway <span class="pill test inline">Custom build</span></h3>
+    <p>A design pattern, not a documented Microsoft or Anthropic recipe. You host a small MCP server that Claude can connect to and that calls the data agent endpoint with a Fabric token.</p>
+    <div class="cols">
+      <div>
+        <div class="label">Identity choices</div>
+        <ul>
+          <li><b>Per user:</b> exchange the signed-in user's token for a Fabric token (for example with an Entra on-behalf-of flow) so the agent still applies each user's permissions. Validate that the endpoint accepts these tokens.</li>
+          <li><b>Service principal</b> <span class="pill preview inline">Preview</span>: one identity for everyone. Needs the tenant setting <i>Service principals can use Fabric APIs</i>, workspace access, and read access on every source. Not yet supported for KQL sources; managed identities aren't supported.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="label">Things you own</div>
+        <ul>
+          <li>Token handling, logging, patching, and keeping up with MCP changes.</li>
+          <li>If the gateway is private, Claude can reach it through <b>MCP tunnels</b> <span class="pill preview inline">Research preview</span>, available on the Enterprise plan by request.</li>
+          <li>Claude doesn't support a machine-to-machine <code>client_credentials</code> grant between Claude and your server; users still sign in.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="t0" role="tabpanel">
+    <h3>Validate the endpoint with a documented client first <span class="pill ga inline">Documented</span></h3>
+    <p>Before you troubleshoot Claude, prove the agent, permissions and token work with a client Microsoft documents: Visual Studio Code (add an HTTP MCP server and sign in) or a short Python script using the MCP Python SDK and <code>azure-identity</code>.</p>
+<pre>pip install mcp azure-identity
+# Sign in with an account that can use the agent and its sources
+az login
+# Then follow the Python sample on the Microsoft Learn page:
+# AzureCliCredential().get_token("https://api.fabric.microsoft.com/.default")
+# initialize -&gt; tools/list -&gt; tools/call with your question</pre>
+    <p>If this works but Claude doesn't, the problem is the Claude-side OAuth setup, not the agent.</p>
+  </div>
+
+  <h2>Governance and boundaries</h2>
+  <div class="callouts">
+    <div class="callout">
+      <h4><span class="dot identity"></span>Identity</h4>
+      <ul>
+        <li>Claude <b>can't self-register</b> with this endpoint: no DCR and no CIMD.</li>
+        <li>Use <b>per-user</b> tokens when answers must respect each person's permissions.</li>
+        <li><b>Service principal</b> auth for data agents is <b>preview</b>, not for KQL sources, and gives everyone the same view.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      <h4><span class="dot security"></span>Security is inherited</h4>
+      <ul>
+        <li>Queries run <b>read-only</b> with the <b>caller's</b> Fabric permissions.</li>
+        <li><b>RLS and CLS</b> apply to agent queries; source permissions are required in addition to sharing the agent.</li>
+        <li>Purview DLP and access restriction policies on sources are respected.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      <h4><span class="dot boundary"></span>Data leaves the boundary</h4>
+      <ul>
+        <li>Answers sent to Claude <b>may leave Fabric's compliance boundary and region</b>.</li>
+        <li>Claude's terms and data handling then govern them.</li>
+        <li>RLS limits what Fabric returns, not what the client stores. Review tool approvals and block tools you don't need.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      <h4><span class="dot preview"></span>Preview &amp; quality</h4>
+      <ul>
+        <li><b>Preview or beta:</b> ontology, data agent service principal auth, Purview features for data agents, Power BI MCP servers, Claude request headers, MCP tunnels, Claude Code MCP tasks.</li>
+        <li>Recheck limits before production; they change often.</li>
+        <li>Validate answers with a <b>ground-truth</b> question set before rollout.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Rollout checklist</h2>
+  <div class="progress"><span id="progTxt">0 of 0 done</span><div class="bar"><div id="progBar"></div></div><button class="reset" id="resetBtn" type="button">Reset</button></div>
+  <ul class="chk" id="checklist">
+    <li><label><input type="checkbox"><span>Confirm a paid F2+ (or P1+) capacity and the cross-geo processing and storing for AI tenant settings.</span></label></li>
+    <li><label><input type="checkbox"><span>Curate the semantic model: names, descriptions, relationships, measures, RLS.</span></label></li>
+    <li><label><input type="checkbox"><span>Optional: generate the ontology (preview), finish manual binding steps, and add rules.</span></label></li>
+    <li><label><input type="checkbox"><span>Create the data agent, add up to five sources and clear instructions.</span></label></li>
+    <li><label><input type="checkbox"><span>Write a specific published description; it becomes the MCP tool description.</span></label></li>
+    <li><label><input type="checkbox"><span>Publish, share the agent, and grant users Read on every underlying source.</span></label></li>
+    <li><label><input type="checkbox"><span>Test with a Read-only pilot user, especially if the agent uses an ontology.</span></label></li>
+    <li><label><input type="checkbox"><span>Copy the MCP server URL and validate with VS Code or the Python sample.</span></label></li>
+    <li><label><input type="checkbox"><span>Pick the Claude surface and identity option; run the pilot steps above.</span></label></li>
+    <li><label><input type="checkbox"><span>Review data handling for answers that leave Fabric with your compliance team.</span></label></li>
+    <li><label><input type="checkbox"><span>Run a ground-truth question set and compare Claude's answers with Fabric's.</span></label></li>
+  </ul>
+
+  <h2 id="sources">Sources</h2>
+  <div class="sources">
+    <h4>Microsoft Learn</h4>
+    <ol>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server" target="_blank" rel="noopener">Data agent as Model Context Protocol server</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent" target="_blank" rel="noopener">Fabric data agent creation (concepts)</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-sharing" target="_blank" rel="noopener">Fabric data agent sharing and permission management</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-service-principal" target="_blank" rel="noopener">Use service principal authentication with Fabric data agent (preview)</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/iq/ontology/overview" target="_blank" rel="noopener">What is ontology (preview)?</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/iq/ontology/how-to-generate-from-semantic-models" target="_blank" rel="noopener">Generate ontology (preview) from semantic models</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/fabric/iq/connectors/fabric-iq-mcp" target="_blank" rel="noopener">Get started with the Fabric IQ MCP server</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/power-bi/developer/mcp/remote-mcp-server-external-clients" target="_blank" rel="noopener">Register Power BI MCP servers for MCP clients</a></li>
+      <li><a href="https://learn.microsoft.com/en-us/power-bi/developer/mcp/remote-mcp-server-get-started" target="_blank" rel="noopener">Power BI Consumption MCP server (preview)</a></li>
+    </ol>
+    <h4>Anthropic</h4>
+    <ol start="10">
+      <li><a href="https://claude.com/docs/connectors/custom/add-unlisted" target="_blank" rel="noopener">Add a connector that isn't in the directory</a></li>
+      <li><a href="https://claude.com/docs/connectors/building/authentication" target="_blank" rel="noopener">Authentication for connectors</a></li>
+      <li><a href="https://claude.com/docs/connectors/mcp-tunnels/overview" target="_blank" rel="noopener">MCP tunnels (research preview)</a></li>
+      <li><a href="https://platform.claude.com/docs/en/api/ip-addresses" target="_blank" rel="noopener">Claude IP addresses</a></li>
+      <li><a href="https://code.claude.com/docs/en/mcp" target="_blank" rel="noopener">Connect Claude Code to tools via MCP</a></li>
+    </ol>
+    <h4>Model Context Protocol</h4>
+    <ol start="15">
+      <li><a href="https://modelcontextprotocol.io/extensions/tasks/overview" target="_blank" rel="noopener">MCP tasks extension</a></li>
+    </ol>
+  </div>
+
+  <div class="legend">
+    <span><span class="k ga"></span>Generally available</span>
+    <span><span class="k pv"></span>Preview or beta</span>
+    <span><span class="k in"></span>Status or requirement note</span>
+    <span><span class="k ts"></span>Inference: test in your tenant</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var themeBtn = document.getElementById('themeBtn');
+  function setTheme(t) {
+    root.setAttribute('data-theme', t);
+    themeBtn.textContent = t === 'dark' ? 'Light mode' : 'Dark mode';
+    themeBtn.setAttribute('aria-pressed', t === 'dark' ? 'true' : 'false');
+    try { localStorage.setItem('fdac-theme', t); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('fdac-theme'); } catch (e) {}
+  setTheme(saved === 'dark' ? 'dark' : 'light');
+  themeBtn.addEventListener('click', function () {
+    setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  function wireTabs(buttons, attr) {
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        buttons.forEach(function (b) {
+          var on = b === btn;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+          var panel = document.getElementById(b.getAttribute(attr));
+          if (panel) panel.classList.toggle('on', on);
+        });
+      });
+    });
+  }
+  wireTabs(Array.prototype.slice.call(document.querySelectorAll('.stage')), 'data-stage');
+  wireTabs(Array.prototype.slice.call(document.querySelectorAll('.tabs button')), 'data-tab');
+
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#checklist input'));
+  var key = 'fdac-checklist';
+  var state = [];
+  try { state = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { state = []; }
+  function update() {
+    var done = boxes.filter(function (b) { return b.checked; }).length;
+    document.getElementById('progTxt').textContent = done + ' of ' + boxes.length + ' done';
+    document.getElementById('progBar').style.width = (boxes.length ? (done / boxes.length) * 100 : 0) + '%';
+    try { localStorage.setItem(key, JSON.stringify(boxes.map(function (b) { return b.checked; }))); } catch (e) {}
+  }
+  boxes.forEach(function (b, i) { b.checked = !!state[i]; b.addEventListener('change', update); });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    boxes.forEach(function (b) { b.checked = false; });
+    update();
+  });
+  update();
+})();
+</script>
+
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content checked against Microsoft Learn and Anthropic documentation on November 6, 2026.<br>
+  Product features change often, especially in preview. For the latest information, always check the official documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+</body>
+</html>
