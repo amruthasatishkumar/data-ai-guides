@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fabric data agent tool in Microsoft Foundry is retiring: your options</title>
+<style>
+  :root { --ink:#1b2430; --muted:#5b6676; --navy:#12355b; --navy2:#1d4a7a; --teal:#0f766e; --tealsoft:#e3f3f1; --amber:#b86e00; --ambersoft:#fff3da; --violet:#5b4a9e; --violetsoft:#eeeaf8; --rose:#b4234f; --rosesoft:#fde8ee; --line:#dbe3ec; --bg:#f4f7fa; --blue:#e8f0f8; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Arial,sans-serif; line-height:1.55; }
+  a { color:var(--navy2); }
+  .wrap { max-width:1120px; margin:0 auto; padding:0 26px; }
+  .hero { background:linear-gradient(120deg,#0e2c4d 0%,#12355b 55%,#0f5a63 100%); color:#fff; padding:30px 0 0; }
+  .eyebrow { font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; color:#7fd6cd; }
+  h1 { font-family:Georgia,serif; font-size:34px; line-height:1.15; margin:4px 0 8px; }
+  .hero p { color:#d5e3f2; max-width:860px; margin:0 0 14px; font-size:16.5px; }
+  .banner { display:flex; gap:14px; align-items:center; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:12px 16px; margin:6px 0 18px; }
+  .banner .date { font-family:Georgia,serif; font-size:26px; color:#ffd58a; white-space:nowrap; }
+  .banner span { color:#e6eef7; font-size:14.5px; }
+  nav.tabs { display:flex; gap:2px; flex-wrap:wrap; }
+  nav.tabs button { background:transparent; border:0; color:#c8d8ea; font:600 14px "Segoe UI",Arial; padding:11px 16px; border-radius:8px 8px 0 0; cursor:pointer; }
+  nav.tabs button:hover { color:#fff; background:rgba(255,255,255,.07); }
+  nav.tabs button.on { background:var(--bg); color:var(--navy); }
+  main { padding:24px 0 50px; }
+  .panel { display:none; } .panel.on { display:block; }
+  h2 { font-size:22px; color:var(--navy); margin:4px 0 6px; }
+  h3 { font-size:16.5px; color:var(--navy); margin:0 0 8px; }
+  .lede { color:var(--muted); margin:0 0 16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .gap { margin-top:16px; }
+  ul, ol { margin:6px 0 0; padding-left:20px; } li { margin-bottom:6px; font-size:14.5px; }
+  .small { font-size:13.5px; } .muted { color:var(--muted); }
+  code { font-family:Consolas,"Courier New",monospace; font-size:12.5px; background:#eef2f7; border:1px solid var(--line); border-radius:4px; padding:1px 5px; overflow-wrap:anywhere; }
+  .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; border-radius:4px; padding:1px 7px; vertical-align:2px; }
+  .p-old { background:var(--rosesoft); color:var(--rose); } .p-a { background:var(--tealsoft); color:#0b5d57; } .p-b { background:var(--violetsoft); color:#3f3378; } .p-pv { background:var(--ambersoft); color:#7a4a00; } .p-ga { background:var(--teal); color:#fff; }
+  .opt { border-top:5px solid var(--line); position:relative; }
+  .opt.old { border-top-color:var(--rose); } .opt.a { border-top-color:var(--teal); } .opt.b { border-top-color:var(--violet); }
+  .opt .tag { font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .rec { position:absolute; top:12px; right:12px; }
+  /* flow diagrams */
+  .flow { display:grid; grid-template-columns:1fr 30px 1.15fr 30px 1fr 30px 1fr; align-items:stretch; margin:8px 0 4px; }
+  .node { border-radius:8px; padding:10px 11px; font-size:13px; border:1.5px solid #b7cbe0; background:var(--blue); }
+  .node b { display:block; color:var(--navy); font-size:14px; margin-bottom:2px; }
+  .node.t { background:var(--tealsoft); border-color:#a9d8d2; } .node.v { background:var(--violetsoft); border-color:#d0c7ec; } .node.r { background:var(--rosesoft); border-color:#f3c7d4; } .node.f { background:#fff; }
+  .arr { display:flex; align-items:center; justify-content:center; color:var(--navy2); font-weight:700; font-size:18px; }
+  .flowcap { font-size:12.5px; color:var(--muted); margin:2px 0 14px; }
+  /* table */
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); font-size:14px; }
+  th { background:var(--navy); color:#fff; text-align:left; padding:9px 11px; font-weight:600; vertical-align:bottom; }
+  th.old { background:#8e2a49; } th.a { background:var(--teal); } th.b { background:var(--violet); }
+  td { padding:9px 11px; border-top:1px solid var(--line); vertical-align:top; }
+  td.k { font-weight:600; color:var(--navy); width:19%; }
+  tr.hl td { background:#fffdf5; }
+  .y { color:#0b5d57; font-weight:700; } .n { color:var(--rose); font-weight:700; }
+  .toggle { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .toggle label { background:#fff; border:1px solid var(--line); border-radius:20px; padding:5px 12px; font-size:13px; cursor:pointer; user-select:none; }
+  /* decision helper */
+  .q { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .q p { margin:0 0 8px; font-weight:600; color:var(--navy); }
+  .q .opts { display:flex; gap:8px; flex-wrap:wrap; }
+  .q button { border:1px solid var(--line); background:#f8fafc; border-radius:20px; padding:6px 14px; font:600 13px "Segoe UI",Arial; cursor:pointer; color:var(--navy); }
+  .q button.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .result { border-radius:10px; padding:16px 18px; border:2px solid var(--line); background:#fff; }
+  .result.a { border-color:var(--teal); background:#f6fcfb; } .result.b { border-color:var(--violet); background:#faf8ff; } .result.ab { border-color:var(--navy2); background:#f6f9fd; }
+  .result h3 { margin-bottom:4px; }
+  /* steps */
+  .subtabs { display:flex; gap:6px; margin:0 0 12px; flex-wrap:wrap; }
+  .subtabs button { border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 14px; font:600 13.5px "Segoe UI",Arial; cursor:pointer; color:var(--navy); }
+  .subtabs button.on { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .sp { display:none; } .sp.on { display:block; }
+  .steps { counter-reset:s; list-style:none; padding:0; margin:0; }
+  .steps > li { counter-increment:s; position:relative; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 16px 12px 56px; margin-bottom:9px; font-size:14.5px; }
+  .steps > li:before { content:counter(s); position:absolute; left:16px; top:12px; width:26px; height:26px; border-radius:13px; background:var(--teal); color:#fff; font-weight:700; text-align:center; line-height:26px; font-size:13px; }
+  .steps.v > li:before { background:var(--violet); }
+  pre { background:#0f2236; color:#e6eef7; border-radius:8px; padding:12px 14px; overflow-x:auto; font-family:Consolas,"Courier New",monospace; font-size:12.5px; margin:8px 0 4px; white-space:pre; }
+  /* mindful */
+  .mind { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .mi { background:#fff; border:1px solid var(--line); border-left:5px solid var(--amber); border-radius:10px; padding:12px 14px; }
+  .mi.r { border-left-color:var(--rose); } .mi.t { border-left-color:var(--teal); } .mi.nv { border-left-color:var(--navy2); }
+  .mi b { display:block; color:var(--navy); margin-bottom:3px; font-size:14.5px; }
+  .mi p { margin:0; font-size:13.5px; }
+  .chk { list-style:none; padding:0; margin:0; }
+  .chk li { padding:7px 0; border-top:1px solid #eef2f6; } .chk li:first-child { border-top:0; }
+  .chk label { display:flex; gap:10px; cursor:pointer; font-size:14.5px; }
+  .chk input { margin-top:4px; width:17px; height:17px; accent-color:var(--teal); flex:none; }
+  .chk input:checked + span { text-decoration:line-through; color:#93a0b0; }
+  .progress { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .bar { flex:1; height:10px; background:#e9eef4; border-radius:6px; overflow:hidden; } .bar div { height:100%; width:0; background:var(--teal); transition:width .3s; }
+  .callout { background:var(--ambersoft); border:1px solid #f0dcae; border-left:6px solid var(--amber); border-radius:10px; padding:14px 18px; }
+  .callout h3 { color:#7a4a00; }
+  .info { background:#eef6ff; border:1px solid #c9dcf0; border-left:6px solid var(--navy2); border-radius:10px; padding:14px 18px; }
+  details { background:#fff; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; }
+  details summary { cursor:pointer; padding:11px 14px; font-weight:600; color:var(--navy); list-style:none; }
+  details summary::-webkit-details-marker { display:none; }
+  details summary:before { content:"+"; display:inline-block; width:18px; color:var(--teal); font-weight:700; }
+  details[open] summary:before { content:"-"; }
+  details .ans { padding:0 16px 12px 32px; font-size:14.5px; }
+  .src li { font-size:13.5px; }
+  .foot { font-size:12.5px; color:var(--muted); border-top:1px solid var(--line); margin-top:30px; padding-top:12px; }
+  @media (max-width:900px) { .grid2,.grid3,.mind { grid-template-columns:1fr; } .flow { grid-template-columns:1fr; } .arr { transform:rotate(90deg); padding:2px 0; } }
+  @media print { nav.tabs, .subtabs, .toggle { display:none; } .panel, .sp { display:block !important; } .hero { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+
+  .site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+  .site-foot a { color:#1d4a7a; }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Microsoft Fabric + Microsoft Foundry</div>
+    <h1>The Fabric data agent tool in Foundry is retiring. Here is what to use instead.</h1>
+    <p>If your Foundry agents call a Fabric data agent through the <b>Microsoft Fabric data agent</b> tool (the connection set up with a workspace ID and artifact ID), you need to move to a supported path. Your Fabric data agents and their data don't change; only the way Foundry connects to them does.</p>
+    <div class="banner"><div class="date">Nov 6, 2026</div><span>Microsoft's documentation states the Microsoft Fabric data agent tool in Foundry Agent Service is no longer supported starting November 6, 2026, and directs customers to the <b>Fabric IQ</b> tool.</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-t="what" class="on">What's going away</button>
+      <button data-t="options">Your options</button>
+      <button data-t="compare">Compare</button>
+      <button data-t="choose">Help me choose</button>
+      <button data-t="migrate">How to migrate</button>
+      <button data-t="mindful">Be mindful of</button>
+      <button data-t="faq">FAQ &amp; sources</button>
+    </nav>
+  </div>
+</div>
+
+<main class="wrap">
+
+<!-- WHAT -->
+<section class="panel on" id="what">
+  <h2>What's going away</h2>
+  <p class="lede">Only one integration is retiring: the <b>Microsoft Fabric data agent</b> tool inside Microsoft Foundry Agent Service. Your Fabric data agents themselves are not retiring.</p>
+
+  <div class="card" style="border-left:6px solid var(--rose)">
+    <h3>The retiring integration</h3>
+    <div class="flow" style="grid-template-columns:1fr 30px 1.3fr 30px 1fr">
+      <div class="node"><b>Your users or app</b>Ask a data question through a Foundry agent</div><div class="arr">&rarr;</div>
+      <div class="node r"><b>"Microsoft Fabric data agent" tool</b>Added to the Foundry agent as a tool or knowledge source, connected with a Fabric workspace ID and artifact ID. One data agent per Foundry agent.</div><div class="arr">&rarr;</div>
+      <div class="node f"><b>Your Fabric data agent</b>Answers using data the signed-in user can access</div>
+    </div>
+    <p class="small" style="margin:6px 0 0">Microsoft's documentation states this integration <b>won't be supported starting November 6, 2026</b>, and that Foundry agents using it must be migrated.</p>
+  </div>
+
+  <div class="grid2 gap">
+    <div class="card">
+      <h3>Who is affected</h3>
+      <ul class="small">
+        <li>Teams with <b>Foundry agents</b> that call a Fabric data agent through the <b>Microsoft Fabric</b> tool or knowledge source.</li>
+        <li>Applications, bots and copilots built on top of those Foundry agents.</li>
+        <li>Code that creates agents with the Fabric data agent tool, for example <code>FabricTool</code>, <code>MicrosoftFabricPreviewTool</code> or the <code>fabric_dataagent_preview</code> tool type.</li>
+        <li>Automation that creates the Fabric project connection with <code>workspace_id</code> and <code>artifact_id</code> keys.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What it means for you</h3>
+      <ul class="small">
+        <li>Microsoft no longer supports the integration from November 6, 2026. Treat any agent still using it as <b>at risk</b> of failing to answer data questions.</li>
+        <li>Don't count on support or fixes for issues with this tool.</li>
+        <li>New agents should not be built on it.</li>
+        <li>Plan to update, test and redeploy each affected agent.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid2 gap">
+    <div class="card">
+      <h3>How to check if you're using it</h3>
+      <ol class="small">
+        <li>In the <a href="https://ai.azure.com/">Foundry portal</a>, open each agent and look under <b>Tools</b> or <b>Knowledge</b> for <b>Microsoft Fabric</b> or <b>Microsoft Fabric data agent</b>.</li>
+        <li>In your Foundry project's connections, look for Fabric connections that store a <b>workspace ID</b> and an <b>artifact ID</b>.</li>
+        <li>Search your code and pipelines for <code>FabricTool</code>, <code>MicrosoftFabricPreviewTool</code>, <code>FabricDataAgentToolParameters</code> or <code>fabric_dataagent_preview</code>.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>What isn't changing</h3>
+      <ul class="small">
+        <li>Your published Fabric data agents, their instructions and their data sources.</li>
+        <li>Fabric permissions: users still only get answers from data they can access.</li>
+        <li>Fabric capacity requirements: paid F2 or higher, or Power BI Premium P1 or higher with Fabric enabled.</li>
+        <li>The data in OneLake. Nothing needs to be moved or copied.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info gap">
+    <b>Next step:</b> if you found any affected agents, see <a href="#options" onclick="document.querySelector('#tabs button[data-t=options]').click();return false;">Your options</a> for the supported ways to keep those agents connected to your Fabric data agents, then <a href="#migrate" onclick="document.querySelector('#tabs button[data-t=migrate]').click();return false;">How to migrate</a>.
+  </div>
+</section>
+
+<!-- OPTIONS -->
+<section class="panel" id="options">
+  <h2>Your options</h2>
+  <p class="lede">For Fabric data agents, both alternatives call the same thing: the MCP endpoint that every published data agent exposes. The difference is who calls it and how it's managed. <b>Inside Foundry, Microsoft documents Alternative 1 as the migration path.</b> Alternative 2 is for clients outside Foundry, or when you need a service principal.</p>
+  <div class="grid2">
+    <div class="card opt a">
+      <span class="pill p-a rec">Microsoft's documented replacement</span>
+      <div class="tag">Alternative 1</div>
+      <h3>Fabric IQ (OneLake Catalog) tool in Foundry <span class="pill p-pv">PREVIEW</span></h3>
+      <p class="small">Microsoft's documented replacement. Add the tool to your Foundry agent, pick published data agents from the OneLake Catalog, and Foundry manages the connection.</p>
+      <ul class="small">
+        <li><b>Best for:</b> agents built in Microsoft Foundry (portal, prompt agents, hosted agents).</li>
+        <li><b>Connects to:</b> Fabric data agents, plus ontologies and Power BI semantic models.</li>
+        <li><b>Identity:</b> delegated user access (signed-in user), or a separate OAuth session through a managed or custom OAuth app.</li>
+        <li><b>SDKs:</b> Python, C#, JavaScript, REST. <span class="n">No Java.</span></li>
+        <li><b>Extras:</b> several data agents per agent, background mode, reusable through a Foundry toolbox.</li>
+      </ul>
+    </div>
+    <div class="card opt b">
+      <div class="tag">Alternative 2</div>
+      <h3>Call the data agent's MCP endpoint directly</h3>
+      <p class="small">Every published data agent is an MCP server with one tool. Any MCP client that supports streamable HTTP and can attach a Fabric bearer token can call it.</p>
+      <ul class="small">
+        <li><b>Best for:</b> custom apps, services and jobs, other agent frameworks, VS Code, or anything outside Foundry.</li>
+        <li><b>Endpoint:</b> <code>https://api.fabric.microsoft.com/v1/mcp/workspaces/{workspaceId}/dataagents/{dataAgentId}/agent</code></li>
+        <li><b>Identity:</b> a user <b>or a service principal</b> token for scope <code>https://api.fabric.microsoft.com/.default</code>.</li>
+        <li><b>Long-running:</b> supports the MCP tasks extension (<code>tasks/get</code>, <code>tasks/cancel</code>).</li>
+        <li><b>You own:</b> token acquisition, orchestration, retries and error handling.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout gap">
+    <h3>Don't confuse these with the "Fabric IQ MCP server"</h3>
+    <p class="small" style="margin:0">There is also a general-purpose <b>Fabric IQ MCP server</b> (<code>fabriciq.svc.cloud.microsoft/v1/mcp/fabriciq</code>, generally available) for querying Power BI reports and semantic models from MCP clients such as GitHub Copilot CLI. It is read-only, uses delegated user sign-in only, and <b>doesn't currently support Fabric data agents or ontologies</b>. It is not a replacement for the retiring tool, but it can be the right fit if your goal is Q&amp;A over Power BI semantic models outside Foundry.</p>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section class="panel" id="compare">
+  <h2>Side-by-side comparison</h2>
+  <p class="lede">Highlight the rows that differ from the retiring tool.</p>
+  <div class="toggle"><label><input type="checkbox" id="hl"> Highlight differences</label><label><input type="checkbox" id="onlydiff"> Show only differences</label></div>
+  <table id="cmp">
+    <tr><th></th><th class="old">Retiring: Microsoft Fabric data agent tool</th><th class="a">Alt 1: Fabric IQ tool in Foundry</th><th class="b">Alt 2: Data agent MCP endpoint (direct)</th></tr>
+    <tr data-diff="1"><td class="k">Status</td><td>Unsupported starting Nov 6, 2026</td><td>Preview</td><td>Documented for published data agents</td></tr>
+    <tr data-diff="1"><td class="k">How you connect</td><td>Workspace ID + artifact ID in a custom connection</td><td>Pick from the OneLake Catalog in the portal; in code, pass the MCP endpoint as <code>server_url</code> with a project connection</td><td>MCP endpoint URL (shown on the data agent's Model Context Protocol settings tab) plus a bearer token</td></tr>
+    <tr data-diff="1"><td class="k">Data agents per agent</td><td>One</td><td>Several</td><td>Any your client chooses to call</td></tr>
+    <tr data-diff="1"><td class="k">Protocol</td><td>Custom Foundry tool</td><td>MCP (tool type <code>fabric_iq_preview</code>)</td><td>MCP over streamable HTTP</td></tr>
+    <tr data-diff="1"><td class="k">Other Fabric items</td><td>Data agent only</td><td>Data agent, ontology, Power BI semantic model</td><td>Data agent only</td></tr>
+    <tr data-diff="1"><td class="k">Identity</td><td>User identity (on-behalf-of)</td><td>Delegated user context, or a managed or custom OAuth app</td><td>User <b>or service principal</b> token</td></tr>
+    <tr data-diff="1"><td class="k">Long-running queries</td><td>No long-running option documented</td><td>Background mode (models such as gpt-5.4, gpt-5.5)</td><td>MCP tasks extension</td></tr>
+    <tr data-diff="1"><td class="k">SDK support</td><td>Python, C#, JavaScript, Java, REST</td><td>Python, C#, JavaScript, REST (<span class="n">no Java</span>)</td><td>Any language with an MCP client</td></tr>
+    <tr data-diff="1"><td class="k">Private networking</td><td>Not documented</td><td>Data agent: tenant- and workspace-level private link. Ontology: tenant-level. Semantic model: public only.</td><td>Use the workspace-specific host when a workspace-level private link blocks public access</td></tr>
+    <tr><td class="k">Fabric capacity</td><td>Paid F2+ or Premium P1+</td><td>Paid F2+ or Premium P1+ (for data agents)</td><td>Paid F2+ or Premium P1+</td></tr>
+    <tr><td class="k">Permissions enforced</td><td>Fabric permissions of the user</td><td>Fabric permissions of the connection identity</td><td>Fabric permissions of the token's identity</td></tr>
+    <tr><td class="k">Data leaving Fabric</td><td>Responses can leave Fabric's compliance boundary</td><td>Same, plus Foundry's terms apply</td><td>Same, plus your MCP client's terms apply</td></tr>
+  </table>
+</section>
+
+<!-- CHOOSE -->
+<section class="panel" id="choose">
+  <h2>Help me choose</h2>
+  <p class="lede">Answer four questions for a suggested path.</p>
+  <div class="q" data-q="foundry"><p>1. Where is the agent that calls your data agent built?</p><div class="opts"><button data-v="foundry">Microsoft Foundry</button><button data-v="other">My own app or another framework</button><button data-v="both">Both</button></div></div>
+  <div class="q" data-q="spn"><p>2. Does it need to run unattended as a service principal (no signed-in user)?</p><div class="opts"><button data-v="yes">Yes</button><button data-v="no">No, it runs as the user</button></div></div>
+  <div class="q" data-q="java"><p>3. Is your Foundry code written in Java?</p><div class="opts"><button data-v="yes">Yes</button><button data-v="no">No / portal only</button></div></div>
+  <div class="q" data-q="items"><p>4. Do you also want to query an ontology or a Power BI semantic model directly (without a data agent)?</p><div class="opts"><button data-v="yes">Yes</button><button data-v="no">No</button></div></div>
+  <div class="result" id="result"><h3>Pick your answers above</h3><p class="small muted" style="margin:0">Your suggested path will appear here.</p></div>
+</section>
+
+<!-- MIGRATE -->
+<section class="panel" id="migrate">
+  <h2>How to migrate</h2>
+  <p class="lede">Your published data agent doesn't change. Only the Foundry tool (or your client) changes.</p>
+  <div class="subtabs" id="subtabs"><button data-s="portal" class="on">Foundry portal (Alt 1)</button><button data-s="code">Foundry SDK / REST (Alt 1)</button><button data-s="direct">Direct MCP client (Alt 2)</button></div>
+
+  <div class="sp on" id="sp-portal">
+    <ol class="steps">
+      <li>Confirm the Fabric data agent is <b>published</b> and answers correctly in Fabric. Only published agents appear in the catalog.</li>
+      <li>Open your agent in the <a href="https://ai.azure.com/">Foundry portal</a>. Under <b>Tools</b>, select <b>Add &gt; Browse all tools &gt; Fabric IQ (OneLake Catalog)</b>, then <b>Add tool</b>.</li>
+      <li>In the OneLake Catalog, filter <b>Type</b> to <b>Data agent</b>, select your data agent, and select <b>Add</b>. Repeat for each data agent you need.</li>
+      <li>Update the agent's <b>instructions</b>: name each data agent and the questions it should handle (for example, "Use the Contoso Sales data agent for revenue and orders").</li>
+      <li>Remove the old <b>Microsoft Fabric data agent</b> tool and select <b>Save</b>. Changes aren't kept until you save.</li>
+      <li>Test in the playground with representative questions for each data agent, and with a user who lacks access to confirm permissions are enforced.</li>
+      <li>For slow queries, pick a model that supports <b>background mode</b> (such as gpt-5.4 or gpt-5.5) and turn it on in the model parameters.</li>
+    </ol>
+  </div>
+
+  <div class="sp" id="sp-code">
+    <ol class="steps">
+      <li>Get the data agent MCP endpoint: <code>https://api.fabric.microsoft.com/v1/mcp/workspaces/{workspaceId}/dataagents/{dataAgentId}/agent</code> (IDs are in the data agent's browser URL).</li>
+      <li>Create a <b>Fabric IQ project connection</b> in the Foundry portal (requires the <b>Foundry Project Manager</b> role).</li>
+      <li>In your agent definition, replace the old <code>fabric_dataagent_preview</code> tool with the Fabric IQ tool, passing <code>project_connection_id</code>, <code>server_url</code> and a short <code>server_label</code>. Use <code>azure-ai-projects&gt;=2.2.0</code> for Python.</li>
+      <li>For hosted agents, add the Fabric IQ tool to a <b>toolbox</b> and connect the agent to the toolbox MCP endpoint.</li>
+      <li>Update instructions, remove the old tool configuration, and test before switching your application.</li>
+    </ol>
+    <p class="small muted">Code samples for each language are in "Connect agents to Microsoft Fabric with Fabric IQ" on Microsoft Learn. The Java SDK doesn't support Fabric IQ.</p>
+  </div>
+
+  <div class="sp" id="sp-direct">
+    <ol class="steps v">
+      <li>Publish the data agent, then open <b>Settings &gt; Model Context Protocol</b> to copy the MCP server URL and tool description (or download <code>mcp.json</code>).</li>
+      <li>Write a clear, specific <b>data agent description</b>. It becomes the MCP tool description that clients use to decide when to call it.</li>
+      <li>Acquire a Fabric token for scope <code>https://api.fabric.microsoft.com/.default</code> as a user or a service principal, and attach it as a bearer token on every request.</li>
+      <li>Use an MCP client or SDK: <code>initialize</code>, then <code>tools/list</code>, then <code>tools/call</code> with the question. A plain REST call won't work.</li>
+      <li>Handle long-running questions with the MCP tasks extension if your client supports it.</li>
+    </ol>
+<pre># Python sketch (MCP Python SDK + azure-identity)
+pip install mcp azure-identity
+# token = ClientSecretCredential(...).get_token("https://api.fabric.microsoft.com/.default")
+# open a streamable HTTP session to the MCP URL with Authorization: Bearer &lt;token&gt;
+# initialize -&gt; list_tools() -&gt; call_tool(tool.name, {&lt;argument name from the tool's input schema&gt;: "your question"})</pre>
+    <p class="small muted">The data agent MCP server doesn't support dynamic client registration, so clients that rely on it to sign in automatically can't connect without their own token flow.</p>
+  </div>
+
+  <h3 class="gap">Migration checklist</h3>
+  <div class="card">
+    <div class="progress"><b id="pct">0%</b><div class="bar"><div id="bar"></div></div></div>
+    <ul class="chk" id="chk">
+      <li><label><input type="checkbox" data-id="inv"><span>Inventory every Foundry agent that uses the Microsoft Fabric data agent tool.</span></label></li>
+      <li><label><input type="checkbox" data-id="pub"><span>Confirm each data agent is published and has a clear description.</span></label></li>
+      <li><label><input type="checkbox" data-id="region"><span>Confirm the workspace region supports the full Fabric stack (not a Power BI-only region).</span></label></li>
+      <li><label><input type="checkbox" data-id="tenant"><span>Review cross-geo processing and storage settings for data agents with your admin.</span></label></li>
+      <li><label><input type="checkbox" data-id="roles"><span>Assign Foundry User (developers, runtime identity, users) and Foundry Project Manager (connection creator).</span></label></li>
+      <li><label><input type="checkbox" data-id="perm"><span>Confirm users have read access to each data agent and its underlying data sources, and a Fabric license.</span></label></li>
+      <li><label><input type="checkbox" data-id="swap"><span>Add the Fabric IQ tool (or direct MCP client), update instructions, remove the old tool, save.</span></label></li>
+      <li><label><input type="checkbox" data-id="test"><span>Test with users who do and don't have access; test long-running questions.</span></label></li>
+      <li><label><input type="checkbox" data-id="comp"><span>Get privacy and compliance sign-off on data residency and the services in the request path.</span></label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- MINDFUL -->
+<section class="panel" id="mindful">
+  <h2>What to be mindful of</h2>
+  <p class="lede">From Microsoft's documentation for the Fabric IQ tool and the data agent MCP server.</p>
+  <div class="mind">
+    <div class="mi r"><b>It's a preview</b><p>The Fabric IQ tool in Foundry is in preview, without an SLA. Plan testing and change control accordingly.</p></div>
+    <div class="mi r"><b>Data can leave Fabric's boundary</b><p>Responses returned by data agents can be sent outside Fabric's compliance boundary or region and handled under Foundry's or your MCP client's terms. Review with privacy and compliance.</p></div>
+    <div class="mi"><b>Region support</b><p>Fabric IQ isn't available in regions where Power BI is the only Fabric workload. Keep the data agent and its data sources on capacities in the same region.</p></div>
+    <div class="mi"><b>Cross-region results</b><p>If the Foundry project and the Fabric workspace are in different Azure regions, query results are returned cross-region.</p></div>
+    <div class="mi"><b>Licensing and capacity</b><p>Data agents need paid F2+ or Premium P1+ capacity. Users who invoke Fabric IQ through your agent need a Fabric license for the items they query.</p></div>
+    <div class="mi"><b>Same tenant, same account</b><p>The data agent and Foundry must be in the same tenant; sign in to both with the same account when using the portal.</p></div>
+    <div class="mi t"><b>Write good instructions</b><p>Name each data agent and the questions it covers. Without this, the agent may not call a data agent or may call the wrong one.</p></div>
+    <div class="mi t"><b>Descriptions drive routing</b><p>For direct MCP use, the published data agent description is the tool description clients rely on. Make it specific.</p></div>
+    <div class="mi t"><b>Long-running queries</b><p>Use background mode in Foundry (gpt-5.4, gpt-5.5) or the MCP tasks extension for direct clients.</p></div>
+    <div class="mi nv"><b>Identity choices</b><p>Foundry connections use delegated user access. Service principal tokens work only when calling the data agent MCP endpoint directly.</p></div>
+    <div class="mi nv"><b>Admin consent for custom OAuth apps</b><p>A bring-your-own Entra app for data agents needs <code>DataAgent.Execute.All</code> with admin consent (Power BI <code>Item.Read.All</code> / <code>Item.Execute.All</code> for ontology).</p></div>
+    <div class="mi nv"><b>Networking and SDKs</b><p>Semantic model endpoints are public only. Workspace-level private link needs a workspace-specific host. No Java SDK support for Fabric IQ.</p></div>
+    <div class="mi"><b>Costs</b><p>Microsoft notes that connecting to Fabric IQ may incur costs. This typically includes model usage in Foundry and Fabric capacity consumption when data agents run queries.</p></div>
+    <div class="mi nv"><b>Renamed Foundry roles</b><p>Foundry User, Foundry Owner, Foundry Account Owner and Foundry Project Manager were previously Azure AI User, Azure AI Owner, Azure AI Account Owner and Azure AI Project Manager. Role IDs didn't change.</p></div>
+    <div class="mi t"><b>Watch what the data agent does</b><p>Use Microsoft's observability guidance for Fabric data agents in Foundry to see which sources were queried and how long each step took.</p></div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="panel" id="faq">
+  <h2>FAQ</h2>
+  <details><summary>Do I need to rebuild my Fabric data agents?</summary><div class="ans">No. Microsoft states the migration changes the Foundry tool integration, not the Fabric data agent or its data sources. Keep using your published data agents.</div></details>
+  <details><summary>Will answers be different after migrating?</summary><div class="ans">The Fabric data agent still produces the answer, and the model you choose in Foundry is only used for orchestration and replies. Results can differ if your agent now routes between several data agents, so test with representative questions.</div></details>
+  <details><summary>Can one Foundry agent use several data agents now?</summary><div class="ans">Yes. With the Fabric IQ (OneLake Catalog) tool you add data agents one at a time, and each appears as its own tool. The retiring tool allowed only one.</div></details>
+  <details><summary>Can I run it without a signed-in user?</summary><div class="ans">Only by calling the data agent MCP endpoint directly with a service principal token. Foundry connections for data agents use delegated user access.</div></details>
+  <details><summary>Is the "Fabric IQ MCP server" the same as the Fabric IQ tool in Foundry?</summary><div class="ans">No. The Fabric IQ tool in Foundry calls item-specific endpoints (data agent, ontology, semantic model). The general Fabric IQ MCP server is a separate, read-only server for Power BI reports and semantic models that doesn't currently support data agents or ontologies.</div></details>
+  <details><summary>What happens if I don't migrate?</summary><div class="ans">Microsoft's documentation says the retiring integration isn't supported starting November 6, 2026, and that agents using it must migrate. Treat any agent still using it as at risk of failing.</div></details>
+  <details><summary>Does this affect other ways of using Fabric data agents?</summary><div class="ans">The retirement notice covers the Microsoft Fabric data agent tool in Foundry Agent Service. Using data agents in Fabric itself, or through other integrations, isn't part of this notice. Check the documentation for each integration you use.</div></details>
+  <details><summary>Do I need new permissions to migrate?</summary><div class="ans">Users still need read access to the data agent and each underlying data source. In Foundry, people who build and test agents need Foundry User, and whoever creates the Fabric IQ connection needs Foundry Project Manager. If you use your own Entra app for the connection, a Global Administrator must grant admin consent once.</div></details>
+
+  <h2 class="gap">Sources</h2>
+  <div class="card src">
+    <ul>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric">Use the Microsoft Fabric data agent with Foundry agents</a> (deprecation notice)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/fabric-iq">Connect agents to Microsoft Fabric with Fabric IQ (preview)</a> (endpoints, auth, migration, networking, governance)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry">Consume a data agent in Microsoft Foundry</a> (retirement notice, earlier method)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-foundry-fabric-iq">Consume Fabric data agent from Microsoft Foundry via Fabric IQ</a> (portal steps, multiple data agents)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/data-agent-mcp-server">Data agent as Model Context Protocol server</a> (direct MCP, service principal, tasks)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/iq/connectors/fabric-iq-mcp">Get started with the Fabric IQ MCP server</a> (the separate, general server)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-science/fabric-data-agent-foundry-observability">Observability for Fabric data agents in Microsoft Foundry</a></li>
+      <li>Fabric Updates blog: <a href="https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/retiring-the-fabric-data-agent-custom-tool-in-microsoft-foundry-move-to-fabric-i/5374418">Retiring the Fabric data agent custom tool in Microsoft Foundry</a></li>
+    </ul>
+  </div>
+</section>
+</main>
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content reflects Microsoft documentation as of that date.<br>
+  Product features change often, especially in preview. For the latest information, always check the official Microsoft Learn documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+
+<script>
+(function(){
+  const tabs=[...document.querySelectorAll('#tabs button')], panels=[...document.querySelectorAll('.panel')];
+  function show(id){ tabs.forEach(b=>b.classList.toggle('on',b.dataset.t===id)); panels.forEach(p=>p.classList.toggle('on',p.id===id)); history.replaceState(null,'','#'+id); window.scrollTo({top:0}); }
+  tabs.forEach(b=>b.addEventListener('click',()=>show(b.dataset.t)));
+  if(location.hash && document.getElementById(location.hash.slice(1))) show(location.hash.slice(1));
+
+  // compare toggles
+  const rows=[...document.querySelectorAll('#cmp tr[data-diff], #cmp tr:not(:first-child)')];
+  function cmp(){ const hl=document.getElementById('hl').checked, od=document.getElementById('onlydiff').checked;
+    document.querySelectorAll('#cmp tr').forEach((r,i)=>{ if(i===0) return; const d=r.dataset.diff==='1'; r.classList.toggle('hl',hl&&d); r.style.display=(od&&!d)?'none':''; }); }
+  document.getElementById('hl').onchange=cmp; document.getElementById('onlydiff').onchange=cmp;
+
+  // sub tabs
+  const sb=[...document.querySelectorAll('#subtabs button')];
+  sb.forEach(b=>b.addEventListener('click',()=>{ sb.forEach(x=>x.classList.toggle('on',x===b)); document.querySelectorAll('.sp').forEach(s=>s.classList.toggle('on',s.id==='sp-'+b.dataset.s)); }));
+
+  // decision helper
+  const ans={};
+  document.querySelectorAll('.q').forEach(q=>q.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    q.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); ans[q.dataset.q]=b.dataset.v; decide(); })));
+  function decide(){
+    const r=document.getElementById('result'); if(Object.keys(ans).length<4){ r.className='result'; r.innerHTML='<h3>Answer all four questions</h3><p class="small muted" style="margin:0">'+(4-Object.keys(ans).length)+' to go.</p>'; return; }
+    let cls='a', title='', pts=[];
+    const f=ans.foundry;
+    if(f==='other'){ cls='b'; title='Alternative 2: call the data agent MCP endpoint directly'; }
+    else if(f==='both' || ans.spn==='yes'){ cls='ab'; title='Use both: Fabric IQ tool in Foundry, plus direct MCP for unattended or external clients'; }
+    else { title='Alternative 1: Fabric IQ (OneLake Catalog) tool in Foundry'; }
+    if(cls!=='b') pts.push('Add the Fabric IQ (OneLake Catalog) tool, pick your published data agents, update instructions and remove the old tool.');
+    if(cls!=='a') pts.push('Point your app or service at the data agent MCP endpoint with a user or service principal token (scope https://api.fabric.microsoft.com/.default).');
+    if(ans.spn==='yes') pts.push('Service principal access works only on the direct data agent MCP endpoint; Foundry connections use delegated user access.');
+    if(ans.java==='yes') pts.push('The Java SDK doesn\u2019t support Fabric IQ. Use Python, C#, JavaScript or REST for the Foundry agent definition, or call the MCP endpoint directly from Java with an MCP client.');
+    if(ans.items==='yes') pts.push('The Fabric IQ tool in Foundry can also target an ontology or a Power BI semantic model endpoint. Outside Foundry, the separate Fabric IQ MCP server covers Power BI semantic models.');
+    pts.push('Review data residency, cross-geo settings and the preview status with your compliance team before production.');
+    r.className='result '+cls; r.innerHTML='<h3>'+title+'</h3><ul>'+pts.map(p=>'<li>'+p+'</li>').join('')+'</ul>';
+  }
+
+  // checklist
+  const KEY='fabric-foundry-migration'; let st={}; try{st=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+  const boxes=[...document.querySelectorAll('#chk input')];
+  function upd(){ const n=boxes.filter(b=>b.checked).length, p=Math.round(100*n/boxes.length); document.getElementById('pct').textContent=p+'%'; document.getElementById('bar').style.width=p+'%'; }
+  boxes.forEach(b=>{ if(b.dataset.id in st) b.checked=st[b.dataset.id]; b.addEventListener('change',()=>{ st[b.dataset.id]=b.checked; localStorage.setItem(KEY,JSON.stringify(st)); upd(); }); }); upd();
+})();
+</script>
+</body>
+</html>

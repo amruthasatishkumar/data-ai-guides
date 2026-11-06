@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data &amp; AI Guides</title>
+<meta name="description" content="Independent, interactive explainers on Microsoft Fabric, Foundry, Snowflake and AI.">
+<style>
+  :root { --ink:#1b2430; --muted:#5b6676; --navy:#12355b; --navy2:#1d4a7a; --teal:#0f766e; --line:#dbe3ec; --bg:#f4f7fa; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Arial,sans-serif; line-height:1.55; }
+  .hero { background:linear-gradient(120deg,#0e2c4d 0%,#12355b 55%,#0f5a63 100%); color:#fff; padding:44px 0 36px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 26px; }
+  .eyebrow { font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; color:#7fd6cd; }
+  h1 { font-family:Georgia,serif; font-size:38px; margin:6px 0 8px; }
+  .hero p { color:#d5e3f2; max-width:720px; margin:0; font-size:16.5px; }
+  .tools { display:flex; gap:10px; flex-wrap:wrap; margin:22px 0 16px; }
+  .tools input { flex:1; min-width:220px; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font:15px "Segoe UI",Arial; }
+  .tools button { border:1px solid var(--line); background:#fff; border-radius:20px; padding:7px 14px; font:600 13px "Segoe UI",Arial; color:var(--navy); cursor:pointer; }
+  .tools button.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  a.card { display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); border-top:5px solid var(--teal); border-radius:10px; padding:18px 18px 16px; text-decoration:none; color:inherit; transition:transform .15s, box-shadow .15s; }
+  a.card:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(18,53,91,.12); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .tag { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:#e8f0f8; color:var(--navy); border-radius:4px; padding:2px 7px; }
+  a.card h2 { font-size:18px; color:var(--navy); margin:0 0 6px; }
+  a.card p { margin:0 0 12px; font-size:14.5px; color:#33404f; flex:1; }
+  .meta { font-size:12.5px; color:var(--muted); display:flex; justify-content:space-between; }
+  .go { color:var(--teal); font-weight:700; }
+  .empty { display:none; color:var(--muted); padding:20px 0; }
+  footer { max-width:1040px; margin:36px auto 30px; padding:14px 26px 0; border-top:1px solid var(--line); font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="hero"><div class="wrap">
+  <div class="eyebrow">Interactive explainers</div>
+  <h1>Data &amp; AI Guides</h1>
+  <p>Clear, interactive walkthroughs of data and AI platform topics: what a feature does, how it works, how to set it up, and what to watch out for. Each guide links to the official documentation it is based on.</p>
+</div></div>
+
+<main class="wrap">
+  <div class="tools">
+    <input id="q" type="search" placeholder="Search guides" aria-label="Search guides">
+    <button data-f="all" class="on">All</button>
+    <button data-f="fabric">Fabric</button>
+    <button data-f="foundry">Foundry</button>
+    <button data-f="snowflake">Snowflake</button>
+    <button data-f="ai">AI agents</button>
+  </div>
+  <div class="grid" id="grid">
+    <a class="card" href="fabric-foundry-data-agent-migration/" data-tags="fabric foundry ai">
+      <div class="tags"><span class="tag">Fabric</span><span class="tag">Foundry</span><span class="tag">Migration</span></div>
+      <h2>Fabric data agent tool in Foundry is retiring: your options</h2>
+      <p>What is going away, who is affected, the supported alternatives (Fabric IQ tool and the data agent MCP endpoint), a decision helper, and migration steps.</p>
+      <div class="meta"><span>Updated Nov 6, 2026</span><span class="go">Open &rarr;</span></div>
+    </a>
+    <a class="card" href="snowgrid-explained/" data-tags="snowflake azure migration">
+      <div class="tags"><span class="tag">Snowflake</span><span class="tag">Azure</span><span class="tag">Migration</span></div>
+      <h2>Snowgrid explained: moving Snowflake from AWS to Azure</h2>
+      <p>How Snowflake's cross-cloud replication, failover groups and Client Redirect move an account between clouds, step by step, with what moves, what doesn't, and cost.</p>
+      <div class="meta"><span>Updated Nov 6, 2026</span><span class="go">Open &rarr;</span></div>
+    </a>
+    <a class="card" href="claude-fabric-lakehouse-cleaning/" data-tags="fabric ai claude">
+      <div class="tags"><span class="tag">Fabric</span><span class="tag">AI agents</span><span class="tag">How-to</span></div>
+      <h2>Use Claude to design data cleaning for a Fabric lakehouse</h2>
+      <p>A read-only workflow: let Claude profile lakehouse data, propose cleaning rules and write a PySpark notebook that you review and run in Fabric.</p>
+      <div class="meta"><span>Updated Nov 6, 2026</span><span class="go">Open &rarr;</span></div>
+    </a>
+  </div>
+  <div class="empty" id="empty">No guides match your search.</div>
+</main>
+
+<footer>These are independent explainers, not official product documentation. Features change often, especially in preview, so always check the official documentation linked in each guide.</footer>
+
+<script>
+(function(){
+  const cards=[...document.querySelectorAll('#grid .card')], q=document.getElementById('q'), btns=[...document.querySelectorAll('.tools button')];
+  let f='all';
+  function apply(){ const s=q.value.trim().toLowerCase(); let n=0;
+    cards.forEach(c=>{ const ok=(f==='all'||c.dataset.tags.includes(f)) && (!s||c.textContent.toLowerCase().includes(s)); c.style.display=ok?'':'none'; if(ok) n++; });
+    document.getElementById('empty').style.display=n?'none':'block'; }
+  q.addEventListener('input',apply);
+  btns.forEach(b=>b.addEventListener('click',()=>{ btns.forEach(x=>x.classList.toggle('on',x===b)); f=b.dataset.f; apply(); }));
+})();
+</script>
+</body>
+</html>

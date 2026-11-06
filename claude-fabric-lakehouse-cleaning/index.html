@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Use Claude to design data cleaning for a Fabric lakehouse</title>
+<style>
+  :root { --ink:#1b2430; --muted:#5b6676; --navy:#12355b; --navy2:#1d4a7a; --teal:#0f766e; --tealsoft:#e3f3f1; --amber:#b86e00; --ambersoft:#fff3da; --violet:#5b4a9e; --violetsoft:#eeeaf8; --line:#dbe3ec; --bg:#f6f8fb; --blue:#e8f0f8; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Segoe UI",Arial,sans-serif; line-height:1.55; }
+  .wrap { max-width:1040px; margin:0 auto; padding:36px 28px 56px; }
+  .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--teal); }
+  h1 { font-family:Georgia,serif; font-size:35px; line-height:1.15; margin:4px 0 8px; color:var(--navy); }
+  .lede { font-size:17px; color:#33404f; max-width:880px; margin:0 0 18px; }
+  h2 { font-size:22px; color:var(--navy); margin:38px 0 6px; scroll-margin-top:16px; }
+  h2 .num { display:inline-block; background:var(--navy); color:#fff; border-radius:6px; font-size:15px; padding:1px 9px; margin-right:8px; vertical-align:3px; }
+  h3 { font-size:16px; color:var(--navy); margin:18px 0 6px; }
+  .sub { color:var(--muted); margin:0 0 14px; }
+  p { margin:0 0 10px; }
+  code { font-family:Consolas,"Courier New",monospace; font-size:13px; background:#eef2f7; border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+  pre { background:#0f2236; color:#e6eef7; border-radius:8px; padding:14px 16px; overflow-x:auto; font-family:Consolas,"Courier New",monospace; font-size:13px; line-height:1.5; margin:8px 0 14px; white-space:pre; }
+  pre .c { color:#8fb3d4; }
+  .prompt { background:#fff; border:1px solid var(--line); border-left:5px solid var(--violet); border-radius:8px; padding:12px 16px; margin:8px 0 14px; font-size:14.5px; white-space:pre-wrap; font-family:"Segoe UI",Arial,sans-serif; }
+  .prompt .tag { display:block; font-size:11.5px; letter-spacing:.1em; font-weight:700; color:var(--violet); margin-bottom:4px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px 18px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  ul, ol { margin:6px 0 10px; padding-left:22px; } li { margin-bottom:6px; font-size:15px; }
+  .steps > li { margin-bottom:12px; }
+  .small, .small li { font-size:14px; }
+  .muted { color:var(--muted); }
+
+  .toc { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 18px; columns:2; column-gap:30px; }
+  .toc a { color:var(--navy2); text-decoration:none; display:block; padding:2px 0; font-size:14.5px; break-inside:avoid; }
+  .toc a:hover { text-decoration:underline; }
+
+  .flow { display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin:16px 0 6px; }
+  .fs { position:relative; background:#fff; border:1px solid var(--line); padding:12px 12px 10px 14px; font-size:13.5px; }
+  .fs:first-child { border-radius:8px 0 0 8px; } .fs:last-child { border-radius:0 8px 8px 0; }
+  .fs b { display:block; color:var(--navy); font-size:14.5px; margin-bottom:2px; }
+  .fs .who { display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; border-radius:3px; padding:1px 6px; margin-bottom:5px; }
+  .who.cl { background:var(--violetsoft); color:var(--violet); }
+  .who.you { background:var(--ambersoft); color:#7a4a00; }
+  .who.fab { background:var(--tealsoft); color:#0b5d57; }
+  .fs:not(:last-child):after { content:"\2192"; position:absolute; right:-11px; top:40%; background:var(--bg); color:var(--navy2); font-weight:700; z-index:2; width:20px; text-align:center; border-radius:10px; }
+
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); font-size:14px; margin:6px 0 12px; }
+  th { background:var(--navy); color:#fff; text-align:left; padding:8px 11px; font-weight:600; }
+  td { padding:8px 11px; border-top:1px solid var(--line); vertical-align:top; }
+  td.k { font-weight:600; color:var(--navy); }
+
+  .note { background:var(--ambersoft); border:1px solid #f0dcae; border-left:5px solid var(--amber); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .note b.h { color:#7a4a00; }
+  .ok { background:var(--tealsoft); border:1px solid #a9d8d2; border-left:5px solid var(--teal); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .ok b.h { color:#0b5d57; }
+  .info { background:#eef6ff; border:1px solid #c9dcf0; border-left:5px solid var(--navy2); border-radius:8px; padding:12px 16px; margin:10px 0 14px; font-size:14.5px; }
+  .check { list-style:none; padding-left:0; }
+  .check li:before { content:"\2610"; color:var(--teal); font-weight:700; margin-right:8px; }
+  .src { margin-top:34px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  .src a { color:var(--navy2); }
+  .src li { font-size:13px; margin-bottom:3px; }
+  @media (max-width:860px) { .grid2,.grid3,.flow { grid-template-columns:1fr; } .toc { columns:1; } .fs { border-radius:8px !important; margin-bottom:8px; } .fs:after { display:none; } }
+  @media print { body { background:#fff; } pre { white-space:pre-wrap; } .card,.note,.ok,.info,table { break-inside:avoid; } }
+
+  .site-foot { max-width:1120px; margin:32px auto 28px; padding:14px 26px 0; border-top:1px solid #dbe3ec; font:13px/1.55 "Segoe UI",Arial,sans-serif; color:#5b6676; }
+  .site-foot a { color:#1d4a7a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Microsoft Fabric + Claude Code</div>
+  <h1>Use Claude to design data cleaning for a Fabric lakehouse</h1>
+  <p class="lede">A step-by-step guide to using Claude as a <b>read-only, in-between layer</b>. It explores your lakehouse data, proposes cleaning rules, and writes a PySpark notebook. You review everything and run the notebook in Fabric yourself. Nothing in OneLake changes until you choose to run the code.</p>
+
+  <div class="flow">
+    <div class="fs"><span class="who cl">Claude</span><b>1. Read</b>Queries the lakehouse through its read-only SQL endpoint</div>
+    <div class="fs"><span class="who cl">Claude</span><b>2. Profile</b>Finds nulls, duplicates, bad formats and outliers</div>
+    <div class="fs"><span class="who you">You</span><b>3. Approve rules</b>Review the proposed cleaning rules and change any you disagree with</div>
+    <div class="fs"><span class="who cl">Claude</span><b>4. Write code</b>Generates a PySpark notebook file on your machine</div>
+    <div class="fs"><span class="who fab">You + Fabric</span><b>5. Run</b>Import, review, and run it in Fabric, writing to Silver</div>
+  </div>
+  <p class="small muted" style="margin-top:6px">Example names used below: workspace <code>Analytics</code>, source lakehouse <code>lh_sales_bronze</code>, target lakehouse <code>lh_sales_silver</code>. Replace them with yours.</p>
+
+  <div class="toc">
+    <a href="#before">0. Before you start</a>
+    <a href="#install">1. Install the tools</a>
+    <a href="#connect">2. Connect Claude Code to Fabric</a>
+    <a href="#lock">3. Keep Claude read-only</a>
+    <a href="#profile">4. Profile the data</a>
+    <a href="#rules">5. Agree the cleaning rules</a>
+    <a href="#code">6. Generate the notebook</a>
+    <a href="#run">7. Run it in Fabric</a>
+    <a href="#validate">8. Validate and iterate</a>
+    <a href="#alt">Alternatives without the plugin</a>
+    <a href="#trouble">Troubleshooting</a>
+    <a href="#data">Data handling and security</a>
+  </div>
+
+  <!-- 0 -->
+  <h2 id="before"><span class="num">0</span>Before you start</h2>
+  <p class="sub">Confirm these before installing anything.</p>
+  <table>
+    <tr><th style="width:28%">Requirement</th><th>Details</th></tr>
+    <tr><td class="k">Approval to use Claude with this data</td><td>Query results and samples Claude reads are sent to Anthropic. Confirm your organization allows this for the lakehouse data. See <a href="#data">Data handling</a>.</td></tr>
+    <tr><td class="k">Fabric access</td><td>An account that can query the lakehouse's SQL analytics endpoint. Creating the target lakehouse and running notebooks in step 7 needs Contributor or higher in that workspace.</td></tr>
+    <tr><td class="k">Claude subscription</td><td>A Claude plan or account that includes Claude Code.</td></tr>
+    <tr><td class="k">Windows tools</td><td>Azure CLI, and Git for Windows (recommended so Claude Code can use Bash). Python 3 is only needed for the <a href="#alt">local alternative</a>.</td></tr>
+    <tr><td class="k">A target for cleaned data</td><td>A Silver lakehouse, such as <code>lh_sales_silver</code>, so Bronze is never overwritten. You can create it in step 7.</td></tr>
+  </table>
+
+  <!-- 1 -->
+  <h2 id="install"><span class="num">1</span>Install the tools</h2>
+  <p class="sub">Run these in Windows PowerShell. Open a new terminal after each install.</p>
+  <ol class="steps">
+    <li><b>Install Azure CLI</b> if you don't have it, then confirm it works:
+<pre>winget install Microsoft.AzureCLI
+az --version</pre></li>
+    <li><b>Install Claude Code</b> with Anthropic's native installer:
+<pre>irm https://claude.ai/install.ps1 | iex
+claude --version</pre>
+      If <code>claude</code> isn't recognized, open a new terminal so your PATH refreshes. WinGet works too: <code>winget install Anthropic.ClaudeCode</code>, but it doesn't auto-update.</li>
+    <li><b>Install Git for Windows</b> (recommended): <code>winget install Git.Git</code></li>
+    <li><b>Create a project folder</b> for this work, and start Claude Code there once to sign in to your Claude account:
+<pre>mkdir C:\Work\lakehouse-cleaning
+cd C:\Work\lakehouse-cleaning
+claude</pre>
+      Follow the sign-in prompts, then type <code>/exit</code> to close.</li>
+  </ol>
+
+  <!-- 2 -->
+  <h2 id="connect"><span class="num">2</span>Connect Claude Code to Fabric</h2>
+  <p class="sub">Microsoft's Skills for Fabric plugin gives Claude Fabric know-how and registers Fabric's remote MCP servers, including the SQL endpoint server. It reuses your Azure CLI sign-in, so no app registration or copied tokens are needed.</p>
+  <ol class="steps">
+    <li><b>Sign in to Azure CLI with the account that has Fabric access.</b> If your account has no Azure subscriptions, add the flag shown:
+<pre>az login --tenant &lt;your-tenant-id&gt; --allow-no-subscriptions
+az account show --query tenantId --output tsv</pre>
+      The second command should print your Fabric tenant ID. If you use more than one account, make sure this is the one with lakehouse access.</li>
+    <li><b>Install the plugin</b> from your project folder:
+<pre>claude plugin marketplace add microsoft/skills-for-fabric
+claude plugin install fabric-skills@fabric-collection
+claude mcp list</pre>
+      <span class="small muted">The older <code>fabric-consumption</code> bundle is retired. It now just installs <code>fabric-skills</code>.</span></li>
+    <li><b>Check that the servers connected.</b> Start <code>claude</code> and type <code>/mcp</code>. You should see the plugin's Fabric servers, including the SQL endpoint server, as connected. Note their exact names, which you need in step 3.</li>
+    <li><b>Run a connection test</b> inside Claude Code:
+      <div class="prompt"><span class="tag">PROMPT</span>Using the Fabric SQL endpoint, list the tables in the lakehouse lh_sales_bronze in workspace Analytics. Read-only: run only SELECT statements.</div>
+      Claude asks permission before each tool call. Approve it, and you should get a list of tables.</li>
+  </ol>
+  <div class="info"><b>Why this path:</b> the lakehouse SQL analytics endpoint is <b>read-only for Delta tables</b>. You can query it and create views, but INSERT, UPDATE and DELETE aren't possible there. That makes it a safe place for Claude to look at your data.</div>
+
+  <!-- 3 -->
+  <h2 id="lock"><span class="num">3</span>Keep Claude read-only</h2>
+  <p class="sub">Claude acts as your signed-in account, so it can do anything you can do. These three layers keep it to looking and writing local files.</p>
+
+  <h3>3a. Write house rules in a CLAUDE.md file</h3>
+  <p>Claude Code reads <code>CLAUDE.md</code> in the project folder at the start of every session. Create <code>C:\Work\lakehouse-cleaning\CLAUDE.md</code>:</p>
+<pre># Rules for this project
+- Microsoft Fabric is READ-ONLY in this project.
+- Only run SELECT queries against Fabric. Never run CREATE, ALTER, DROP,
+  INSERT, UPDATE, DELETE, MERGE, or anything that changes data or items.
+- Never create, run, or modify Fabric notebooks, pipelines, lakehouses, or
+  any other Fabric item. Never call Fabric REST APIs that write.
+- Prefer aggregate profiling queries. Pull at most 20 sample rows per table.
+- Never print or display full columns of personal data.
+- All generated code is saved locally in ./output for the user to review.</pre>
+
+  <h3>3b. Block the write-capable server</h3>
+  <p>The plugin also registers a Power BI <b>authoring</b> server, which can change semantic models. You don't need it here, so deny it. Create <code>.claude\settings.json</code> in the project folder:</p>
+<pre>{
+  "permissions": {
+    "deny": [
+      "mcp__plugin_fabric-skills_powerbi-modeling-mcp__*"
+    ]
+  }
+}</pre>
+  <p class="small muted">Plugin servers use the form <code>mcp__plugin_&lt;plugin&gt;_&lt;server&gt;__*</code>. If the name in <code>/mcp</code> is different, use that name. Run <code>claude doctor</code> to confirm the rule loaded without errors.</p>
+
+  <h3>3c. Approve tool calls yourself</h3>
+  <ul>
+    <li>Stay in the default permission mode. Don't use auto-approve or bypass modes for this project.</li>
+    <li>Read every SQL statement before approving it. Approve only <code>SELECT</code> queries.</li>
+    <li>Don't choose "always allow" for the SQL tool. Claude Code can't filter by statement type, so your review is the control.</li>
+    <li>Be careful with shell commands too. Approve <code>az</code> or <code>curl</code> calls only if they read data.</li>
+  </ul>
+  <div class="ok"><b class="h">Result:</b> Claude can look at the lakehouse, but every action needs your approval, it has no authoring server, and the lakehouse endpoint itself can't modify tables.</div>
+
+  <!-- 4 -->
+  <h2 id="profile"><span class="num">4</span>Profile the data</h2>
+  <p class="sub">Start with summary statistics. They tell Claude most of what it needs without sending raw rows to Anthropic.</p>
+  <div class="prompt"><span class="tag">PROMPT 1: INVENTORY</span>List every table in lh_sales_bronze (workspace Analytics) with its row count, column names, and data types. Read-only.</div>
+  <div class="prompt"><span class="tag">PROMPT 2: PROFILE</span>For each table, profile every column using aggregate SELECT queries only:
+- null and empty-string percentage
+- distinct count, and the top 10 values with their counts for low-cardinality columns
+- min, max, and average for numeric and date columns
+- values that don't match the expected type (text in numeric columns, unparseable dates)
+- leading or trailing spaces and inconsistent casing
+- duplicate rows on the likely business key
+
+Pull at most 20 sample rows per table, and only if needed. Save the results to ./output/profile.md with one section per table, and a summary of the biggest issues at the top.</div>
+  <p class="small">For large tables, ask Claude to add <code>TOP</code> or a sampling filter to its queries to keep them fast.</p>
+
+  <!-- 5 -->
+  <h2 id="rules"><span class="num">5</span>Agree the cleaning rules</h2>
+  <p class="sub">This is the most important step. Claude proposes the rules, and you decide which ones apply.</p>
+  <div class="prompt"><span class="tag">PROMPT 3: PROPOSE RULES</span>Based on ./output/profile.md, propose data cleaning rules. Save them to ./output/cleaning-rules.md as a table with these columns:
+table | column | issue found | proposed rule | rows affected (estimate) | risk if wrong | needs business input (yes/no)
+
+Group the rules into: type fixes, standardization, null handling, deduplication, invalid or out-of-range values, and derived columns. Don't write code yet.</div>
+  <p>Then review the file and reply in chat, for example:</p>
+  <div class="prompt"><span class="tag">PROMPT 4: REFINE</span>Rule 4: don't drop rows with a null region, set the region to 'Unknown' instead.
+Rule 7: dedupe on order_id and keep the latest by modified_date.
+Remove rule 9.
+Mark everything else as approved and update the file.</div>
+  <div class="note"><b class="h">Decide these yourself, not Claude:</b> what counts as a duplicate, whether to drop or quarantine bad rows, default values for nulls, and anything with business meaning, such as currency, fiscal dates, or status codes.</div>
+
+  <!-- 6 -->
+  <h2 id="code"><span class="num">6</span>Generate the notebook</h2>
+  <div class="prompt"><span class="tag">PROMPT 5: WRITE THE NOTEBOOK</span>Turn the APPROVED rules in ./output/cleaning-rules.md into a Microsoft Fabric PySpark notebook saved as ./output/clean_bronze_to_silver.ipynb. Do not run it and do not upload it to Fabric.
+
+Structure:
+1. A parameters cell with source and target ABFS paths, the table list, and a dry_run flag that defaults to True.
+2. Read each source table as Delta.
+3. One clearly named function per rule, each with a comment that cites the rule number.
+4. Bad rows go to a separate quarantine table instead of being silently dropped.
+5. Data quality checks with row counts before and after each rule, a null check on key columns, and a uniqueness check on the business key.
+6. When dry_run is True, only display results. When it's False, write cleaned tables to the target path with mode "overwrite" and never write to the source path.
+7. A final summary cell showing rows in, rows out, and rows quarantined per table.
+
+Use only PySpark built into the Fabric runtime. No extra libraries.</div>
+  <p>Ask follow-ups until you're happy with it, for example "explain cell 4", "make rule 7 deterministic", or "add a check that no new nulls appear in customer_id".</p>
+  <div class="info">You can find the ABFS paths in Fabric. Open the lakehouse, select <b>Tables</b> (or a table), open the <b>...</b> menu, and choose <b>Properties</b> to copy the ABFS path. They look like <code>abfss://&lt;workspace&gt;@onelake.dfs.fabric.microsoft.com/&lt;lakehouse&gt;.Lakehouse/Tables/...</code></div>
+
+  <!-- 7 -->
+  <h2 id="run"><span class="num">7</span>Run it in Fabric</h2>
+  <ol class="steps">
+    <li><b>Create the Silver lakehouse</b> if it doesn't exist. In the workspace, select <b>New item &gt; Lakehouse</b> and name it <code>lh_sales_silver</code>.</li>
+    <li><b>Import the notebook.</b> In the workspace toolbar, choose <b>Import &gt; Notebook &gt; From this computer</b> and pick <code>clean_bronze_to_silver.ipynb</code>. Fabric accepts standard <code>.ipynb</code> files.</li>
+    <li><b>Attach the lakehouses.</b> Open the notebook, add both lakehouses in the explorer pane, and pin <code>lh_sales_silver</code> as the default.</li>
+    <li><b>Fill in the parameters cell</b> with the real ABFS paths. Leave <code>dry_run = True</code>.</li>
+    <li><b>Run the cells one at a time.</b> Read each cell before running it. Check the before and after counts and the quarantine counts.</li>
+    <li><b>Do the real run.</b> When the dry run looks right, set <code>dry_run = False</code> and run the notebook again. Cleaned tables appear in <code>lh_sales_silver</code>, and Bronze is untouched.</li>
+  </ol>
+  <div class="note"><b class="h">Note:</b> interactive notebook runs use your identity and your workspace's Fabric capacity. If something goes wrong, Delta time travel lets you go back to an earlier version of a Silver table.</div>
+
+  <!-- 8 -->
+  <h2 id="validate"><span class="num">8</span>Validate and iterate</h2>
+  <div class="prompt"><span class="tag">PROMPT 6: VALIDATE</span>Profile the cleaned tables in lh_sales_silver the same way as before, read-only. Compare them with ./output/profile.md and confirm each approved rule had the expected effect. Flag anything unexpected, and save the result to ./output/validation.md.</div>
+  <ul>
+    <li>If something is off, update the rules file and regenerate the notebook. Then re-import it, or paste the changed cells into Fabric.</li>
+    <li>Keep the <code>output</code> folder, or put it in Git. The profile, rules, and validation files are your documentation.</li>
+    <li>Once the notebook is stable, you can schedule it in Fabric or add it to a pipeline. Claude doesn't need to be involved after that.</li>
+  </ul>
+
+  <!-- ALT -->
+  <h2 id="alt">Alternatives without the plugin</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">A. Read a sample locally with Python</h3>
+      <p class="small">Claude Code writes and runs a local script that reads a Delta table straight from OneLake and profiles it on your machine. No MCP is involved.</p>
+<pre>pip install deltalake polars azure-identity</pre>
+<pre><span class="c"># profile_sample.py (Claude can write this for you)</span>
+from azure.identity import AzureCliCredential
+from deltalake import DeltaTable
+import polars as pl
+
+token = AzureCliCredential().get_token(
+    "https://storage.azure.com/.default").token
+path = ("abfss://Analytics@onelake.dfs.fabric.microsoft.com/"
+        "lh_sales_bronze.Lakehouse/Tables/orders")
+dt = DeltaTable(path, storage_options={
+    "bearer_token": token, "use_fabric_endpoint": "true"})
+df = pl.from_arrow(dt.to_pyarrow_dataset().head(50000))
+print(df.describe())</pre>
+      <p class="small muted" style="margin:0">This needs the tenant setting <i>Users can access data stored in OneLake with apps external to Fabric</i>. The data lands on your laptop, so treat it accordingly. For schema-enabled lakehouses, include the schema, such as <code>Tables/dbo/orders</code>.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">B. Claude chat only, no setup</h3>
+      <ol class="small">
+        <li>In Fabric, run a profiling query or notebook yourself and export the results, or a small sample, to CSV.</li>
+        <li>Upload the CSV to a Claude chat and use prompts 3 to 5 above.</li>
+        <li>Copy the generated notebook into Fabric and run it as in step 7.</li>
+      </ol>
+      <p class="small muted" style="margin:0">This is the most manual option, but it's the easiest to get approved. Claude only sees what you choose to upload.</p>
+    </div>
+  </div>
+
+  <!-- TROUBLE -->
+  <h2 id="trouble">Troubleshooting</h2>
+  <table>
+    <tr><th style="width:34%">Problem</th><th>What to check</th></tr>
+    <tr><td class="k"><code>claude</code> isn't recognized</td><td>Open a new terminal. If it still fails, follow Anthropic's PATH fix in the Claude Code install troubleshooting guide.</td></tr>
+    <tr><td class="k">Fabric servers show as failed in <code>/mcp</code></td><td>Run <code>az account show</code> in the same terminal. Sign in with <code>az login --tenant &lt;id&gt; --allow-no-subscriptions</code> if needed, then restart Claude Code. A successful install doesn't mean every server connected.</td></tr>
+    <tr><td class="k">Errors about OAuth or dynamic client registration</td><td>Usually means the Azure CLI token step failed and the client fell back to OAuth. Fix the <code>az login</code> session first. Also check for an older manual registration with the same server name that overrides the plugin's.</td></tr>
+    <tr><td class="k">Wrong tenant or no tables found</td><td>Confirm <code>az account show</code> prints the tenant that holds the workspace, and that your account can open the lakehouse SQL endpoint in the Fabric portal.</td></tr>
+    <tr><td class="k">New Bronze data isn't visible</td><td>The SQL endpoint usually syncs within a minute. You can refresh its metadata from the SQL endpoint in Fabric.</td></tr>
+    <tr><td class="k">The notebook fails on a path</td><td>Re-copy the ABFS paths from table Properties. Check whether the lakehouse uses schemas, which adds <code>dbo/</code> to the path.</td></tr>
+  </table>
+
+  <!-- DATA -->
+  <h2 id="data">Data handling and security</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">What leaves Fabric</h3>
+      <ul class="small">
+        <li>Everything Claude reads, including query results, samples, and schema, is sent to Anthropic as conversation context.</li>
+        <li>Microsoft's MCP guidance says these clients may process data outside the Fabric compliance boundary, under the client's terms.</li>
+        <li>Sensitivity labels and DLP don't follow data into Claude.</li>
+        <li>Keep it to aggregates. Don't sample columns that contain personal data.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">What protects your data</h3>
+      <ul class="small">
+        <li>The lakehouse SQL endpoint can't modify Delta tables.</li>
+        <li>Your Fabric permissions, plus row-level and object-level security, still apply to every query.</li>
+        <li>CLAUDE.md rules, the deny rule, and your approval of each tool call.</li>
+        <li>You run the notebook yourself, after reviewing it, writing to Silver only.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Final checklist</h3>
+  <ul class="check">
+    <li>Approval to share this data with Claude</li>
+    <li>Azure CLI signed in to the right tenant, and Fabric servers connected in <code>/mcp</code></li>
+    <li>CLAUDE.md and the deny rule in place, with no auto-approve</li>
+    <li>Profile and rules reviewed, and business rules decided by you</li>
+    <li>Notebook reviewed, dry run checked, writing to Silver only</li>
+    <li>Silver validated against the original profile</li>
+  </ul>
+
+  <div class="src">
+    <b>Sources, checked November 4, 2026</b>
+    <ul>
+      <li>GitHub, microsoft/skills-for-fabric: <a href="https://github.com/microsoft/skills-for-fabric">README</a> (bundles, the retired consumption bundle) and <a href="https://github.com/microsoft/skills-for-fabric/blob/main/mcp-setup/README.md">MCP setup for Claude Code</a></li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/fundamentals/skills-for-fabric-install">Install Skills for Fabric</a></li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehouse-mcp-server">Fabric Data Warehouse MCP server</a> and <a href="https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-sql-analytics-endpoint">Lakehouse SQL analytics endpoint</a></li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/data-engineering/how-to-use-notebook">How to use notebooks</a> (import, security context)</li>
+      <li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/fabric/onelake/security/get-started-security">OneLake data security</a> (external apps setting) and <a href="https://learn.microsoft.com/en-us/power-bi/developer/mcp/mcp-servers-overview">MCP data handling considerations</a></li>
+      <li>Anthropic: <a href="https://code.claude.com/docs/en/setup">Claude Code setup</a> and <a href="https://code.claude.com/docs/en/permissions">Claude Code permissions</a></li>
+    </ul>
+    Tools in this space change quickly. If a command or menu name differs, check these pages first.
+  </div>
+</div>
+<footer class="site-foot">
+  <b>Last updated:</b> November 6, 2026. Content reflects Microsoft, GitHub and Anthropic documentation as of November 4, 2026.<br>
+  Product features change often, especially in preview. For the latest information, always check the official Microsoft, GitHub and Anthropic documentation linked in the Sources section.<br>
+  This is an independent explainer, not official product documentation. <a href="../">More guides</a>
+</footer>
+</body>
+</html>
